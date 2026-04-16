@@ -1,0 +1,771 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.root{font-family:var(--font-sans);padding:16px 0}
+.tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:6px 14px;border-radius:20px;font-size:13px;cursor:pointer;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);color:var(--color-text-secondary);transition:all .15s}
+.tab.on{background:var(--color-background-danger);color:var(--color-text-danger);border-color:var(--color-border-danger)}
+.panel{display:none}.panel.on{display:block}
+
+.screen-row{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);margin-bottom:8px;background:var(--color-background-primary);overflow:hidden}
+.screen-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;transition:background .1s}
+.screen-header:hover{background:var(--color-background-secondary)}
+.screen-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;background:var(--color-background-danger);color:var(--color-text-danger)}
+.screen-name{font-size:13px;font-weight:500;color:var(--color-text-primary);flex:1}
+.screen-route{font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary);padding:2px 6px;border-radius:4px;background:var(--color-background-secondary);flex-shrink:0}
+.chevron{font-size:12px;color:var(--color-text-tertiary);transition:transform .2s;flex-shrink:0;margin-left:6px}
+.chevron.open{transform:rotate(90deg)}
+.screen-body{display:none;border-top:0.5px solid var(--color-border-tertiary)}
+.screen-body.open{display:block}
+.body-inner{padding:14px}
+
+.sec{margin-bottom:14px}
+.sec:last-child{margin-bottom:0}
+.sec-label{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-tertiary);margin-bottom:6px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.bp-card{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:8px 10px;background:var(--color-background-secondary)}
+.bp-title{font-size:11px;font-weight:500;color:var(--color-text-primary);margin-bottom:4px}
+.bp-body{font-size:11px;color:var(--color-text-secondary);line-height:1.6}
+
+.item-list{display:flex;flex-direction:column;gap:3px}
+.item{font-size:12px;color:var(--color-text-secondary);display:flex;gap:6px;line-height:1.55}
+.item::before{content:"·";color:var(--color-text-tertiary);flex-shrink:0}
+.item.action::before{content:"→";color:var(--color-text-warning);flex-shrink:0}
+.item.rule::before{content:"!";color:var(--color-text-danger);flex-shrink:0;font-weight:500}
+.item.design::before{content:"✦";color:var(--color-text-info);flex-shrink:0;font-size:10px}
+.item.api::before{content:"⌁";color:var(--color-text-info);flex-shrink:0;font-size:13px}
+.item strong{color:var(--color-text-primary);font-weight:500}
+.item code{font-family:var(--font-mono);font-size:10.5px;background:var(--color-background-secondary);padding:1px 4px;border-radius:3px;color:var(--color-text-primary)}
+
+.count-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.count-card{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:8px 12px;background:var(--color-background-primary)}
+.count-num{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+.count-label{font-size:11px;color:var(--color-text-secondary)}
+</style>
+
+<div class="root">
+<div class="tabs">
+  <div class="tab on" onclick="sw('overview')">Overview</div>
+  <div class="tab" onclick="sw('auth')">Login (1)</div>
+  <div class="tab" onclick="sw('dash')">Dashboard (1)</div>
+  <div class="tab" onclick="sw('catalog')">Catalog (2)</div>
+  <div class="tab" onclick="sw('ops')">Operations (3)</div>
+  <div class="tab" onclick="sw('finance')">Finance (2)</div>
+  <div class="tab" onclick="sw('people')">People + More (3)</div>
+</div>
+
+<div class="panel on" id="panel-overview">
+  <div class="count-row">
+    <div class="count-card"><div class="count-num">11</div><div class="count-label">Total screens</div></div>
+    <div class="count-card"><div class="count-num">Desktop</div><div class="count-label">Primary layout</div></div>
+    <div class="count-card"><div class="count-num">Tablet</div><div class="count-label">Supported</div></div>
+    <div class="count-card"><div class="count-num">React</div><div class="count-label">+ Vite + Tailwind</div></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-label">Layout — fixed sidebar, all screens share this shell</div>
+    <div class="three-col">
+      <div class="bp-card">
+        <div class="bp-title">Desktop (≥ 1200px) — primary</div>
+        <div class="bp-body">Fixed left sidebar 240px. Content area fills remaining width. Max content width 1400px. Tables show all columns. Side panels (slide-overs) open at 480px wide from right.</div>
+      </div>
+      <div class="bp-card">
+        <div class="bp-title">Tablet (768–1199px)</div>
+        <div class="bp-body">Sidebar collapses to 64px (icons only). Hover to see labels. Content fills remaining width. Tables scroll horizontally. Side panels full-screen on smaller tablets.</div>
+      </div>
+      <div class="bp-card">
+        <div class="bp-title">Mobile (&lt;768px) — limited</div>
+        <div class="bp-body">Admin panel is NOT mobile-first. Mobile shows a warning: "For best experience, use a desktop or tablet." Basic read-only views still work. No table editing on mobile.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-label">Sidebar navigation (always visible on desktop)</div>
+    <div class="item-list">
+      <div class="item design"><strong>Top:</strong> App logo + "Admin Panel" label</div>
+      <div class="item design"><strong>Nav links (with icons):</strong> Dashboard · Categories · Products · Vendors · Orders · Payments · Payouts · Users · Coupons · Search Insights</div>
+      <div class="item design"><strong>Active state:</strong> brand-red left border + brand-light background on active nav item</div>
+      <div class="item design"><strong>Bottom:</strong> Admin name + avatar initials circle + "Sign out" link</div>
+      <div class="item d">Sidebar is fixed — does not scroll with content</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-label">Global header bar (top of every page)</div>
+    <div class="item-list">
+      <div class="item d">Page title (e.g. "Dashboard") in 20px semibold — changes per screen</div>
+      <div class="item d">Breadcrumb below title where applicable: "Home / Vendors / Pending"</div>
+      <div class="item d">Right side: notifications bell (admin-specific alerts) + admin avatar</div>
+      <div class="item d">Notifications: new vendor registration, failed payments needing review, payout due alerts</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-label">Design system — admin-specific</div>
+    <div class="two-col">
+      <div class="bp-card">
+        <div class="bp-title">Colors (same brand, slightly different usage)</div>
+        <div class="bp-body">Brand red #E8563C for primary actions only (Approve, Save). Tables use #F9FAFB row hover. Status badges: green=active/success, amber=pending/warning, red=suspended/failed, gray=inactive. Danger zone actions: red outlined buttons.</div>
+      </div>
+      <div class="bp-card">
+        <div class="bp-title">Typography + Components</div>
+        <div class="bp-body">Plus Jakarta Sans. Tables: 13px rows, 11px column headers. Cards: 15px body. Shadcn/ui Table, Dialog, Sheet, Select, Command components. Recharts for all charts. TanStack Table for sortable/filterable tables.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-label">Slide-over panel pattern (used everywhere)</div>
+    <div class="item-list">
+      <div class="item design">All add/edit/detail actions open a slide-over panel from the right — never a new page</div>
+      <div class="item design">Slide-over: 480px wide on desktop, full-screen on mobile/small tablet</div>
+      <div class="item design">Backdrop: semi-transparent overlay behind panel, click to close</div>
+      <div class="item design">Panel has: header (title + close ✕) · scrollable body · sticky footer (Cancel + action button)</div>
+      <div class="item rule">Form in slide-over has unsaved changes? Closing shows "Discard changes?" confirmation</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-label">Tech stack</div>
+    <div class="item-list">
+      <div class="item">React 18 + Vite + TypeScript</div>
+      <div class="item">Tailwind CSS + Shadcn/ui (Table, Dialog, Sheet, Badge, Select, Command, DatePicker)</div>
+      <div class="item">TanStack Query v5 — server state, auto-refetch on window focus</div>
+      <div class="item">TanStack Table v8 — sortable, filterable, paginated tables with column visibility toggle</div>
+      <div class="item">Recharts — line charts, bar charts, funnel charts on dashboard</div>
+      <div class="item">React Hook Form + Zod — all forms</div>
+      <div class="item">React Router v6 — nested routes, protected by admin auth guard</div>
+      <div class="item">Zustand — admin auth token (in memory only)</div>
+    </div>
+  </div>
+</div>
+
+<div class="panel" id="panel-auth"><div id="auth-screens"></div></div>
+<div class="panel" id="panel-dash"><div id="dash-screens"></div></div>
+<div class="panel" id="panel-catalog"><div id="catalog-screens"></div></div>
+<div class="panel" id="panel-ops"><div id="ops-screens"></div></div>
+<div class="panel" id="panel-finance"><div id="finance-screens"></div></div>
+<div class="panel" id="panel-people"><div id="people-screens"></div></div>
+</div>
+
+<script>
+const allScreens = {
+  auth:[
+    {
+      num:1, name:'Login', route:'/admin/login',
+      sections:[
+        {label:'Layout',items:[
+          {t:'design',v:'Centered card on a dark charcoal (#111827) background — distinct from customer app to clearly signal "internal tool"'},
+          {t:'design',v:'Card: white, max-w-sm, rounded-2xl, generous padding (40px)'},
+          {t:'d',v:'App logo at top center of card, 48×48px'},
+          {t:'d',v:'Heading: "Admin Portal" (20px bold). Subheading: "Sign in with your admin credentials" (muted)'},
+        ]},
+        {label:'Login form fields',items:[
+          {t:'d',v:'Label: "Email address". Input type="email". Placeholder: "admin@meatdelivery.in"'},
+          {t:'d',v:'Label: "Password". Input type="password" with show/hide toggle (eye icon right side)'},
+          {t:'d',v:'"Remember me" checkbox — persists session for 30 days via refresh token in httpOnly cookie'},
+          {t:'a',v:'"Sign in" button (full width, brand red) → POST /auth/admin/login {email, password}'},
+          {t:'d',v:'Button shows spinner while request is in flight. Disabled after click (prevents double submit).'},
+        ]},
+        {label:'Validation',items:[
+          {t:'d',v:'Email: validated on blur — "Enter a valid email address" if invalid format'},
+          {t:'d',v:'Password: must be at least 8 chars — validated on blur, "Password is required" if empty'},
+          {t:'d',v:'Both fields must be filled before "Sign in" button becomes active (disabled state until valid)'},
+          {t:'rule',v:'Wrong credentials: red banner at top of card "Invalid email or password. Please try again."'},
+          {t:'rule',v:'After 5 failed attempts: red banner "Account locked for 10 minutes due to too many failed attempts" with live countdown timer showing MM:SS'},
+          {t:'rule',v:'Locked state: Sign in button disabled, input fields read-only until countdown reaches 0'},
+        ]},
+        {label:'Forgot password',items:[
+          {t:'d',v:'"Forgot your password?" link below the Sign in button'},
+          {t:'a',v:'Clicking → /admin/forgot-password page'},
+          {t:'d',v:'Forgot password page: email input → POST /auth/admin/forgot-password → sends reset link email'},
+          {t:'d',v:'Success message: "Reset link sent. Check your email." (shown on same page, no redirect)'},
+          {t:'d',v:'Reset link → /admin/reset-password?token=xxx → two password inputs (new + confirm) → success → back to login'},
+        ]},
+        {label:'After successful login',items:[
+          {t:'a',v:'Stores accessToken in Zustand memory (NOT localStorage — XSS protection)'},
+          {t:'a',v:'Stores refreshToken in httpOnly cookie (server sets via Set-Cookie header)'},
+          {t:'a',v:'Redirects to /admin/dashboard'},
+          {t:'d',v:'If already logged in and visits /admin/login → auto-redirect to /admin/dashboard'},
+        ]},
+        {label:'No OTP — email + password only',items:[
+          {t:'rule',v:'Admin login uses email + password only. No OTP. No social login. Different auth endpoint from customer app.'},
+          {t:'rule',v:'Admin accounts are created only by another admin (no self-registration)'},
+          {t:'d',v:'Future: can add TOTP (Google Authenticator) as 2FA for extra security — structure supports it'},
+        ]},
+      ]
+    },
+  ],
+
+  dash:[
+    {
+      num:2, name:'Dashboard', route:'/admin/dashboard',
+      sections:[
+        {label:'Page header',items:[
+          {t:'d',v:'Title: "Dashboard"'},
+          {t:'d',v:'Date range picker (top right): Today · Yesterday · Last 7 days · Last 30 days · This month · Custom range'},
+          {t:'d',v:'City filter dropdown: All cities · Delhi · Mumbai · Bangalore (lists cities where vendors exist)'},
+          {t:'d',v:'Selected filters shown as chips with ✕ to clear each'},
+          {t:'d',v:'Auto-refreshes every 5 minutes (useQuery refetchInterval: 300000)'},
+        ]},
+        {label:'Row 1 — 4 primary KPI metric cards',items:[
+          {t:'design',v:'Cards in a 4-column grid. Each card: muted label (12px) · large number (28px bold) · trend indicator (↑ or ↓ vs previous period in green/red)'},
+          {t:'d',v:'Card 1 — GMV (Gross Merchandise Value): ₹1,24,500 · ↑ 12% vs last period'},
+          {t:'d',v:'Card 2 — Total orders: 342 · ↑ 8%'},
+          {t:'d',v:'Card 3 — Platform revenue (sum of platformFee): ₹12,450 · ↑ 10%'},
+          {t:'d',v:'Card 4 — Active vendors (isActive: true): 28 · ↑ 2'},
+          {t:'api',v:'GET /admin/metrics?from=&to=&city='},
+        ]},
+        {label:'Row 2 — 4 operational KPI metric cards',items:[
+          {t:'d',v:'Card 5 — Online riders right now: 12 (real-time, no trend)'},
+          {t:'d',v:'Card 6 — Orders delivered today: 87'},
+          {t:'d',v:'Card 7 — Orders cancelled today: 6 (with cancel rate %: "6.4%")'},
+          {t:'d',v:'Card 8 — Pending payouts: 5 (count of PENDING payout records, links to Payouts page)'},
+          {t:'design',v:'Pending payouts card has amber left border if count > 0 — visual alert'},
+        ]},
+        {label:'Revenue chart (main chart area)',items:[
+          {t:'design',v:'Line chart taking full width. Height: 280px. Recharts LineChart.'},
+          {t:'d',v:'X-axis: dates (daily for ≤30 days, weekly for >30 days)'},
+          {t:'d',v:'Y-axis: rupee amount (formatted: ₹1.2L, ₹50K etc.)'},
+          {t:'d',v:'Two lines: GMV (brand red) + Platform Revenue (gray/muted)'},
+          {t:'d',v:'Hover tooltip: date · GMV amount · Platform Revenue amount'},
+          {t:'d',v:'Legend below chart: colored dot + label for each line'},
+          {t:'d',v:'Responds to date range and city filter from page header'},
+          {t:'api',v:'GET /admin/revenue-chart?days=30&city='},
+        ]},
+        {label:'Order funnel (below chart, left half)',items:[
+          {t:'design',v:'Horizontal bar chart (Recharts). 5 bars stacked or side-by-side.'},
+          {t:'d',v:'Bars: Placed · Confirmed · Delivered · Cancelled · Refunded'},
+          {t:'d',v:'Each bar shows count and percentage of total placed'},
+          {t:'d',v:'Conversion rates shown below: "Confirm rate: 94%" · "Delivery rate: 88%" · "Cancel rate: 6%"'},
+          {t:'api',v:'GET /admin/funnel?from=&to='},
+        ]},
+        {label:'Top vendors table (below chart, right half)',items:[
+          {t:'d',v:'Title: "Top 10 vendors by GMV" with "View all →" link to /admin/vendors'},
+          {t:'d',v:'Compact table: Rank # · Vendor name + city · Orders count · GMV (₹) · Rating (stars)'},
+          {t:'d',v:'Each vendor name is a clickable link → opens vendor detail slide-over'},
+          {t:'api',v:'GET /admin/top-vendors?limit=10&from=&to='},
+        ]},
+        {label:'Search insights teaser (bottom strip)',items:[
+          {t:'d',v:'Small section: "3 searches had no results today" with link "→ View search insights"'},
+          {t:'d',v:'Top 3 no-result queries shown as pill chips'},
+          {t:'d',v:'Quick action: "Add product for this query" chip → opens Add Product slide-over pre-filled'},
+        ]},
+      ]
+    },
+  ],
+
+  catalog:[
+    {
+      num:3, name:'Categories', route:'/admin/categories',
+      sections:[
+        {label:'Page header',items:[
+          {t:'d',v:'Title: "Categories" with count badge "12 total" (gray pill)'},
+          {t:'d',v:'Subtitle: "Manage product categories shown to customers"'},
+          {t:'a',v:'"+ Add category" button (top right, brand red) → opens Add Category slide-over panel'},
+        ]},
+        {label:'Categories table',items:[
+          {t:'design',v:'Full-width table with drag-to-reorder rows (using @hello-pangea/dnd or dnd-kit)'},
+          {t:'design',v:'Column: Drag handle (⠿ icon, cursor grab, gray) — drag rows up/down to change sort order'},
+          {t:'d',v:'Column: Image — 40×40 rounded category image thumbnail. Click → opens full image in lightbox.'},
+          {t:'d',v:'Column: Name — category name (15px). Clicking name → opens Edit slide-over'},
+          {t:'d',v:'Column: Products — count badge "18 products". Clicking → opens product list filtered by this category'},
+          {t:'d',v:'Column: Sort order — current numeric sort order (auto-updates when rows are dragged)'},
+          {t:'d',v:'Column: Status — badge "Active" (green pill) or "Inactive" (gray pill)'},
+          {t:'d',v:'Column: Actions — three buttons: "Edit" (pencil icon) · "Activate/Deactivate" toggle · "Delete" (trash, red)'},
+          {t:'rule',v:'Delete disabled (grayed out) if product count > 0. Hover shows tooltip: "Move or delete all products first"'},
+          {t:'rule',v:'Reorder drag: fires PUT /catalog/categories/reorder with new sort order array only on drop (not on every drag)'},
+        ]},
+        {label:'Add category slide-over panel',items:[
+          {t:'d',v:'Header: "Add category" + ✕ close button'},
+          {t:'d',v:'Field: Category name (required). Input text. Placeholder "e.g. Chicken, Mutton, Fish". Min 2, max 100 chars.'},
+          {t:'d',v:'Field: Category image (required). Drag-and-drop zone OR click to browse. Accepted: JPEG, PNG. Max 2MB.'},
+          {t:'design',v:'Image drop zone: dashed border, upload icon, "Drag image here or click to browse" text'},
+          {t:'d',v:'After image selected: preview (120×120 thumbnail) with "Remove" button'},
+          {t:'d',v:'Field: Sort order. Number input. Default: (last category sort order + 1). Helper: "Lower number = shown first"'},
+          {t:'d',v:'Footer: "Cancel" button (secondary) + "Save category" button (brand red)'},
+          {t:'a',v:'Save → POST /catalog/categories → slide-over closes → table row appears at correct sort order position'},
+          {t:'d',v:'Success toast: "Category "Chicken" created"'},
+          {t:'rule',v:'Duplicate name: inline error "A category with this name already exists"'},
+        ]},
+        {label:'Edit category slide-over panel',items:[
+          {t:'d',v:'Same fields as Add, pre-populated with current values'},
+          {t:'d',v:'Image section: current image shown (120×120) with "Replace image" button below'},
+          {t:'d',v:'Replacing image: same drag-and-drop zone appears below current image. Old image stays until save.'},
+          {t:'a',v:'Save → PUT /catalog/categories/:id → table row updates in place'},
+        ]},
+        {label:'Deactivate confirmation modal',items:[
+          {t:'d',v:'Title: "Deactivate this category?"'},
+          {t:'d',v:'Body: "This will hide all 18 products in Chicken from customers immediately. Existing orders are not affected."'},
+          {t:'d',v:'Buttons: "Cancel" + "Deactivate" (red button)'},
+          {t:'api',v:'PATCH /catalog/categories/:id/deactivate'},
+        ]},
+        {label:'Delete confirmation modal',items:[
+          {t:'d',v:'Title: "Delete this category?"'},
+          {t:'d',v:'Body: "This action cannot be undone. The category will be permanently removed."'},
+          {t:'d',v:'Type-to-confirm: "Type DELETE to confirm" input — delete button only enabled when "DELETE" is typed'},
+          {t:'d',v:'"Cancel" + "Delete permanently" (red)'},
+        ]},
+      ]
+    },
+    {
+      num:4, name:'Products (master catalog)', route:'/admin/products',
+      sections:[
+        {label:'Page header',items:[
+          {t:'d',v:'Title: "Products" with total count badge'},
+          {t:'d',v:'Subtitle: "Master product catalog — prices set here apply platform-wide"'},
+          {t:'a',v:'"+ Add product" button (top right, brand red) → Add Product slide-over'},
+        ]},
+        {label:'Filter and search bar',items:[
+          {t:'d',v:'Search input: "Search by product name..." (debounced 300ms). Searches across name + description.'},
+          {t:'d',v:'Filter: Category dropdown (All · Chicken · Mutton · Fish · Seafood · Marinated…)'},
+          {t:'d',v:'Filter: Status dropdown (All · Active · Inactive)'},
+          {t:'d',v:'Filter: Unit dropdown (All · KG · Grams · Pieces · Dozen)'},
+          {t:'d',v:'Active filters shown as removable chips below filter bar. "Clear all" link if any filter is active.'},
+          {t:'d',v:'Filters persist in URL query params (?category=chicken&status=active) — shareable and browser-back safe'},
+        ]},
+        {label:'Products table columns',items:[
+          {t:'d',v:'Col: Image — 48×48 thumbnail, rounded-lg, object-cover. Click → lightbox fullscreen preview.'},
+          {t:'d',v:'Col: Name — 14px semibold. Clicking → opens Edit slide-over.'},
+          {t:'d',v:'Col: Category — category name as badge (gray pill)'},
+          {t:'d',v:'Col: Unit — KG / Grams / Pieces / Dozen (gray text)'},
+          {t:'d',v:'Col: Price — "₹280 / KG" (brand color). This is the platform-wide price all vendors use.'},
+          {t:'d',v:'Col: MRP — "₹320" (muted, this is the strikethrough price shown to customers)'},
+          {t:'d',v:'Col: Vendors — "14 vendors" pill. Clicking → shows list of vendors that have this product in their catalog.'},
+          {t:'d',v:'Col: Status — "Active" green pill or "Inactive" gray pill'},
+          {t:'d',v:'Col: Actions — "Edit" icon · "Image" icon · "Activate/Deactivate" toggle icon'},
+          {t:'d',v:'Table is sortable: clicking column headers sorts ascending/descending (name, price, vendor count)'},
+          {t:'d',v:'Row hover: subtle gray background. Row click = same as clicking name (opens edit slide-over).'},
+        ]},
+        {label:'Add product slide-over',items:[
+          {t:'d',v:'Header: "Add product"'},
+          {t:'d',v:'Field: Product name (required). Text input. Min 2, max 150 chars.'},
+          {t:'d',v:'Field: Category (required). Searchable dropdown. Lists active categories only. Placeholder "Select a category".'},
+          {t:'d',v:'Field: Unit type (required). Radio button group: KG · Grams · Pieces · Dozen. Default: KG.'},
+          {t:'d',v:'Field: Price per unit (required). Number input with ₹ prefix. Min 1. Placeholder "e.g. 280"'},
+          {t:'d',v:'Field: MRP per unit (optional). Number input with ₹ prefix. Helper text: "Shown as strikethrough price to customers. Must be higher than price."'},
+          {t:'rule',v:'MRP validation: if MRP is entered, it must be ≥ price. Inline error: "MRP must be greater than or equal to selling price"'},
+          {t:'d',v:'Field: Description (optional). Textarea, 4 rows, max 500 chars, live character counter "0 / 500"'},
+          {t:'d',v:'Field: Product image (optional at creation, can add later via Image action). Same drag-and-drop zone as categories.'},
+          {t:'d',v:'Footer: "Cancel" + "Create product" (brand red)'},
+          {t:'api',v:'POST /catalog/products → slide-over closes → product appears in table'},
+          {t:'d',v:'Success toast: "Product "Chicken Curry Cut" created"'},
+        ]},
+        {label:'Edit product slide-over',items:[
+          {t:'d',v:'Same fields as Add, all pre-populated'},
+          {t:'d',v:'Image section: current image shown with "Replace image" button'},
+          {t:'d',v:'Price field: editable. Warning banner in amber: "Changing price updates it for all vendors immediately"'},
+          {t:'d',v:'"Vendor count" info: "14 vendors have this product in their catalog"'},
+          {t:'d',v:'"View vendors" link → opens a list of vendor names using this product (in a nested panel or modal)'},
+          {t:'api',v:'PUT /catalog/products/:id → table row updates in place with new values'},
+        ]},
+        {label:'Upload image action (separate from edit)',items:[
+          {t:'d',v:'Opens a focused slide-over: just image upload, nothing else'},
+          {t:'d',v:'Drag-and-drop zone. Accepted: JPEG, PNG. Max 5MB.'},
+          {t:'d',v:'Image preview after selection (400px wide, maintains aspect ratio)'},
+          {t:'d',v:'Upload progress bar shown while uploading to S3 via backend'},
+          {t:'d',v:'"Upload" button becomes active after image is selected'},
+          {t:'api',v:'POST /catalog/products/:id/image (multipart/form-data) → table image thumbnail updates instantly'},
+        ]},
+        {label:'Deactivate / Activate product',items:[
+          {t:'d',v:'Deactivating: confirmation modal "This hides the product from all 14 vendor menus immediately."'},
+          {t:'d',v:'Activating: no confirmation needed — instant toggle'},
+          {t:'api',v:'PATCH /catalog/products/:id/deactivate or /activate'},
+        ]},
+      ]
+    },
+  ],
+
+  ops:[
+    {
+      num:5, name:'Vendors', route:'/admin/vendors',
+      sections:[
+        {label:'Page header',items:[
+          {t:'d',v:'Title: "Vendors"'},
+          {t:'design',v:'Four tabs with count badges: "All (42)" · "Pending (3)" · "Active (36)" · "Suspended (3)"'},
+          {t:'d',v:'Tab counts update in real time. Pending tab has amber dot if count > 0.'},
+        ]},
+        {label:'Filter and search (All + Active + Suspended tabs)',items:[
+          {t:'d',v:'Search input: by vendor name, owner name, or phone number (debounced 300ms)'},
+          {t:'d',v:'City filter dropdown: All cities · Delhi · Mumbai · etc.'},
+          {t:'d',v:'Sort by: Registration date (newest first, default) · Rating · Orders count'},
+        ]},
+        {label:'Vendor table columns (All / Active / Suspended)',items:[
+          {t:'d',v:'Col: Logo — 40×40 rounded logo thumbnail. No logo = initials circle in brand-light.'},
+          {t:'d',v:'Col: Vendor name + owner name below in muted small text'},
+          {t:'d',v:'Col: Phone — displayed in readable format (e.g. +91 98100 12345)'},
+          {t:'d',v:'Col: City'},
+          {t:'d',v:'Col: Status badge — Active (green) / Pending (amber) / Suspended (red)'},
+          {t:'d',v:'Col: Orders — lifetime order count'},
+          {t:'d',v:'Col: Rating — star icon + numeric (e.g. 4.3), "(142 reviews)" in muted'},
+          {t:'d',v:'Col: Joined — date (DD MMM YYYY)'},
+          {t:'d',v:'Col: Actions — "View" (eye icon) · "Suspend" (lock icon, red) for Active · "Reinstate" (unlock icon, green) for Suspended'},
+          {t:'d',v:'Row click → opens vendor detail slide-over'},
+        ]},
+        {label:'Pending tab — special layout',items:[
+          {t:'d',v:'Sorted oldest first (approve in order of registration — FIFO)'},
+          {t:'d',v:'Each row has an amber "NEW" badge if registered within last 24h'},
+          {t:'d',v:'Two action buttons per row (visible without clicking): "Approve" (green) · "Reject" (red outline)'},
+          {t:'d',v:'Approve: opens minimal confirmation modal "Approve [Vendor Name]?" → Confirm → row moves to Active tab'},
+          {t:'d',v:'Reject: opens modal with reason textarea (required, min 10 chars, placeholder "e.g. Incomplete documents, invalid FSSAI")'},
+        ]},
+        {label:'Vendor detail slide-over (480px)',items:[
+          {t:'d',v:'Header: Vendor name + status badge'},
+          {t:'d',v:'Section: Basic info — Owner name · Phone · Email · City · Pincode · Address line'},
+          {t:'d',v:'Section: Map — small React Leaflet map (200px height) showing vendor pin. Delivery radius circle overlay.'},
+          {t:'d',v:'Section: Shop settings — Prep time · Min order amount · Delivery radius · Commission % (editable field)'},
+          {t:'d',v:'Section: Documents — three document cards (FSSAI · GST · PAN)'},
+          {t:'d',v:'Each document card: type label · upload date · status badge (Pending/Approved/Rejected) · "View" button (opens in new tab as signed S3 URL)'},
+          {t:'d',v:'Document actions for admin: "Approve" (green) · "Reject" buttons per document'},
+          {t:'d',v:'Reject document: opens reason input modal'},
+          {t:'d',v:'Section: Bank details — Account holder name · masked account (••••1234) · IFSC · Bank name · Verified badge'},
+          {t:'d',v:'Section: Statistics — Total orders · Total GMV · Average rating · Joined date · Last order date'},
+          {t:'d',v:'Section: Recent orders — last 5 orders table (order ID, date, amount, status)'},
+          {t:'d',v:'Footer: context-based action buttons'},
+          {t:'d',v:'Pending vendor footer: "Approve" (green, brand) + "Reject" (red outline)'},
+          {t:'d',v:'Active vendor footer: "Suspend" (red outline)'},
+          {t:'d',v:'Suspended vendor footer: "Reinstate" (green outline)'},
+        ]},
+        {label:'Suspend vendor flow',items:[
+          {t:'d',v:'Click Suspend → opens modal'},
+          {t:'d',v:'Modal body: "Suspending will immediately close their shop and remove them from customer searches."'},
+          {t:'d',v:'Reason textarea (required, min 10 chars). Placeholder: "e.g. Multiple customer complaints, fraudulent activity"'},
+          {t:'d',v:'"Cancel" + "Suspend vendor" (red) buttons'},
+          {t:'api',v:'PATCH /vendors/admin/:id/suspend {reason} → vendor status changes, shop auto-closed, nearby cache invalidated'},
+        ]},
+      ]
+    },
+    {
+      num:6, name:'Orders', route:'/admin/orders',
+      sections:[
+        {label:'Page header',items:[
+          {t:'d',v:'Title: "Orders" with total count for current filters'},
+          {t:'d',v:'"Export CSV" button (top right) — exports current filtered view, max 1000 rows'},
+          {t:'d',v:'Export modal: "Exporting 342 orders..." → download starts → "Downloaded!" toast'},
+        ]},
+        {label:'Filter bar',items:[
+          {t:'d',v:'Search: by order ID (paste full UUID or short code like #AB12CD), or customer phone'},
+          {t:'d',v:'Status filter: All · Placed · Confirmed · Preparing · Ready · Picked up · Out for delivery · Delivered · Cancelled · Refunded'},
+          {t:'d',v:'Date range: Today · Yesterday · Last 7 days · Last 30 days · Custom (date picker with from/to)'},
+          {t:'d',v:'Vendor filter: searchable dropdown of all vendors'},
+          {t:'d',v:'City filter: dropdown'},
+          {t:'d',v:'Payment method: All · UPI · Card · COD · Wallet'},
+          {t:'d',v:'Payment status: All · Pending · Success · Failed · Refunded'},
+          {t:'d',v:'Active filters shown as chips. "Clear all" link. Filter state in URL params.'},
+        ]},
+        {label:'Orders table columns',items:[
+          {t:'d',v:'Col: Order ID — last 8 chars shown (#AB12CDEF), copy icon. Full UUID in tooltip on hover.'},
+          {t:'d',v:'Col: Customer — masked phone (98100•••••). Hover to see unmasked if admin has permission.'},
+          {t:'d',v:'Col: Vendor — vendor name (link → opens vendor detail slide-over)'},
+          {t:'d',v:'Col: Items — "Chicken × 2, Mutton × 1" (first 2 items, "+N more" if more). Tooltip shows full list.'},
+          {t:'d',v:'Col: Amount — ₹ total (bold)'},
+          {t:'d',v:'Col: Payment — method icon + payment status badge (Success=green, Failed=red, Pending=amber)'},
+          {t:'d',v:'Col: Order status — color-coded badge (Placed=amber, Preparing=blue, Delivered=green, Cancelled=gray)'},
+          {t:'d',v:'Col: Time — relative time "2h ago". Hover shows full "12 Dec 2024, 14:32" tooltip.'},
+          {t:'d',v:'Col: Actions — "View" icon always visible. "Cancel" icon (red, only for cancellable statuses). "Refund" icon (only for delivered/failed).'},
+          {t:'d',v:'Row click → opens order detail slide-over'},
+          {t:'d',v:'Table pagination: 25 rows per page. Previous/Next buttons + page number input at bottom.'},
+        ]},
+        {label:'Order detail slide-over',items:[
+          {t:'d',v:'Header: "Order #AB12CD" + status badge'},
+          {t:'d',v:'Section: Customer — name (if available) · phone (unmasked for admin) · "Call" link'},
+          {t:'d',v:'Section: Delivery address — full address text · city · pincode'},
+          {t:'d',v:'Section: Vendor — name · phone · "View vendor" link'},
+          {t:'d',v:'Section: Rider — name · phone · rating · "Assigned at" time. "Not yet assigned" if no rider.'},
+          {t:'d',v:'Section: Items table — Product name · Quantity · Unit · Price per unit · Line total'},
+          {t:'d',v:'Section: Bill — items total · delivery fee · platform fee · tax · discount (if coupon) · wallet used · grand total'},
+          {t:'d',v:'Section: Payment — method · status · Razorpay payment ID (monospace) · paid at timestamp'},
+          {t:'d',v:'Section: Refund — refund ID · amount · reason · initiated at · status (only if refund exists)'},
+          {t:'d',v:'Section: Status timeline — vertical list. Each step: actor type + actor name + timestamp + note.'},
+          {t:'d',v:'Example timeline entry: "SYSTEM · 14:32 · Order auto-cancelled due to vendor timeout"'},
+          {t:'d',v:'Section: Special instructions (if any) — in a yellow info box'},
+          {t:'d',v:'Footer: admin action buttons (context-based)'},
+          {t:'a',v:'Cancellable order footer: "Force cancel" button (red outline) → reason modal → PATCH /orders/admin/:id/status'},
+          {t:'a',v:'Delivered/Paid order footer: "Initiate refund" button → refund modal'},
+          {t:'a',v:'Override status: "Override status" dropdown → any status → confirmation modal with "This bypasses normal flow" warning'},
+        ]},
+        {label:'Initiate refund modal',items:[
+          {t:'d',v:'Title: "Initiate refund for order #AB12CD"'},
+          {t:'d',v:'Amount field: pre-filled with final order amount (₹330). Editable for partial refund.'},
+          {t:'d',v:'Helper: "Full refund: ₹330. Enter a lower amount for partial refund."'},
+          {t:'rule',v:'Validation: amount must be > 0 and ≤ original payment amount. Inline error if exceeded.'},
+          {t:'d',v:'Reason textarea (required, min 10 chars). Placeholder: "e.g. Item not delivered, wrong item received"'},
+          {t:'d',v:'"Cancel" + "Initiate refund" (red) buttons'},
+          {t:'a',v:'POST /payments/refund {orderId, amount, reason} → success toast "Refund of ₹330 initiated. Customer notified via push + email."'},
+        ]},
+      ]
+    },
+    {
+      num:7, name:'Search Insights', route:'/admin/search-insights',
+      sections:[
+        {label:'Page header + filters',items:[
+          {t:'d',v:'Title: "Search insights"'},
+          {t:'d',v:'City filter: required dropdown (insights are per-city). Default: first city with data.'},
+          {t:'d',v:'Date range: Last 7 days (default) · Last 30 days · Last 90 days'},
+          {t:'d',v:'Auto-refreshes when filters change (no submit button)'},
+          {t:'api',v:'GET /admin/search-insights?city=Delhi&days=7'},
+        ]},
+        {label:'Summary stats row',items:[
+          {t:'d',v:'Total searches in period · Unique queries · Queries with no results (count + %)'},
+          {t:'d',v:'Three metric cards matching dashboard style'},
+        ]},
+        {label:'"Popular searches" section',items:[
+          {t:'d',v:'Section title: "Most searched queries"'},
+          {t:'design',v:'Table: Rank # · Query text · Search count · Avg results found · Trend (↑↓ vs previous period)'},
+          {t:'d',v:'Top 20 queries shown. Sorted by search count descending.'},
+          {t:'d',v:'Query text is clickable: clicking shows a right-side preview of what results that query returns (vendor names + product names)'},
+          {t:'design',v:'Bar chart alongside table: horizontal bars showing relative search volume (largest bar = full width)'},
+        ]},
+        {label:'"No results" section',items:[
+          {t:'d',v:'Section title: "Searches with no results" (with count badge in red)'},
+          {t:'d',v:'Table: Query text · Search count · Last searched · Action'},
+          {t:'design',v:'Rows with high search count (>10) highlighted with amber left border — priority to address'},
+          {t:'d',v:'Action per row: "Add product" button → clicks pre-fill Add Product slide-over with query text as product name'},
+          {t:'d',v:'Insight box below table: "These are products customers want but you don\'t carry yet. Adding them increases revenue."'},
+        ]},
+      ]
+    },
+  ],
+
+  finance:[
+    {
+      num:8, name:'Payments & Refunds', route:'/admin/payments',
+      sections:[
+        {label:'Page header + tabs',items:[
+          {t:'d',v:'Title: "Payments"'},
+          {t:'design',v:'Three tabs: "All payments" · "Failed" (with red badge if count > 0) · "Refunds"'},
+        ]},
+        {label:'"All payments" tab',items:[
+          {t:'d',v:'Search: by Razorpay payment ID, order ID, or customer phone'},
+          {t:'d',v:'Filter: payment method (All · UPI · Card · COD · Wallet · Netbanking)'},
+          {t:'d',v:'Filter: status (All · Success · Failed · Pending · Refunded)'},
+          {t:'d',v:'Filter: date range'},
+          {t:'d',v:'Table: Order ID · Customer phone · Amount · Method badge · Status badge · Gateway payment ID (monospace, truncated) · Paid at timestamp · Actions'},
+          {t:'d',v:'Actions: "View order" → opens order detail slide-over in orders context'},
+          {t:'d',v:'Row click opens payment detail slide-over: full Razorpay response data, timestamps, all transaction metadata'},
+          {t:'d',v:'Summary strip at top: "₹1,24,500 processed · ₹4,200 failed · ₹3,100 refunded" for current filter period'},
+        ]},
+        {label:'"Failed" tab',items:[
+          {t:'d',v:'Shows only status = FAILED payments'},
+          {t:'d',v:'Sorted by date (newest first) — recent failures need attention first'},
+          {t:'d',v:'Table: same as All tab + "Failure reason" column (from Razorpay error description)'},
+          {t:'d',v:'Failure reason examples: "Insufficient funds" · "Payment expired" · "Bank declined"'},
+          {t:'d',v:'Action per row: "View order" · "Cancel order" (if order still PLACED — payment failed, need to cancel + restore stock)'},
+          {t:'d',v:'"Cancel order" → opens cancel confirmation: "Payment failed. Cancel order and restore stock?" → PATCH /orders/admin/:id/status {status: CANCELLED}'},
+          {t:'d',v:'Bulk action: select multiple rows → "Cancel selected orders" → processes all in sequence'},
+        ]},
+        {label:'"Refunds" tab',items:[
+          {t:'d',v:'Shows all payments where status = REFUNDED'},
+          {t:'d',v:'Table: Order ID · Customer · Amount · Refund amount · Razorpay refund ID · Reason · Status (Initiated/Processed/Failed) · Refunded at'},
+          {t:'d',v:'If refund status = FAILED: "Retry refund" button (amber) → re-opens initiate refund modal pre-filled'},
+          {t:'d',v:'Summary: "₹3,100 total refunded · 12 refunds · ₹258 avg refund amount"'},
+          {t:'d',v:'"Export CSV" button — full refund list for accounting reconciliation'},
+        ]},
+      ]
+    },
+    {
+      num:9, name:'Payouts', route:'/admin/payouts',
+      sections:[
+        {label:'Page header',items:[
+          {t:'d',v:'Title: "Payouts"'},
+          {t:'d',v:'Summary strip: "₹45,000 pending across 5 vendors" (amber if any pending)'},
+          {t:'a',v:'"Calculate payout" button (top right, brand red) → opens multi-step payout wizard'},
+          {t:'design',v:'Four tabs: "Pending (5)" · "Processing" · "Completed" · "Failed"'},
+        ]},
+        {label:'Calculate payout wizard (slide-over)',items:[
+          {t:'d',v:'Header: "Calculate vendor payout"'},
+          {t:'d',v:'Step 1 — Select vendor: searchable dropdown. Shows: vendor name + city + "Last payout: 20 Nov 2024"'},
+          {t:'d',v:'Step 2 — Select period: From date picker + To date picker. Defaults: start of last month → end of last month.'},
+          {t:'d',v:'After period selected: calculation preview loads (GET /admin/payouts/preview?vendorId=&from=&to=):'},
+          {t:'design',v:'Preview card showing breakdown:'},
+          {t:'d',v:'"Delivered orders in period: 87"'},
+          {t:'d',v:'"Gross revenue (sum of itemsTotal): ₹48,300"'},
+          {t:'d',v:'"Platform commission deducted (10%): −₹4,830"'},
+          {t:'d',v:'"Payout amount: ₹43,470" (large, bold, brand color)'},
+          {t:'rule',v:'If payout already exists for this period: amber warning "A payout for this period already exists (#PAYOUT-ID). Duplicate?"'},
+          {t:'d',v:'Step 3 — Reference (optional): NEFT/IMPS/UPI transaction reference number input. Placeholder "e.g. UTR123456789012"'},
+          {t:'d',v:'Footer: "Cancel" + "Create payout" (brand red)'},
+          {t:'api',v:'POST /admin/payouts {vendorId, periodStart, periodEnd, transactionRef} → creates PENDING record'},
+          {t:'d',v:'Success toast: "Payout of ₹43,470 created for Fresh Chicken Corner"'},
+        ]},
+        {label:'Pending payouts table',items:[
+          {t:'d',v:'Table: Vendor name + city · Period (1 Dec – 31 Dec 2024) · Orders count · Gross revenue · Commission · Payout amount · Bank details (Account holder + ••••1234) · Created at · Actions'},
+          {t:'d',v:'Actions: "Mark processing" (amber) · "Mark completed" (green) · "Mark failed" (red outline)'},
+          {t:'d',v:'"Mark processing" → instant status update, no modal needed'},
+          {t:'d',v:'"Mark completed" → modal: "Enter transaction reference number" (required) → save → status changes to Completed'},
+          {t:'d',v:'"Mark failed" → modal: "Reason for failure" textarea (required) → save → status changes to Failed'},
+          {t:'d',v:'Row expand (click ›): shows list of included order IDs + amounts for verification'},
+        ]},
+        {label:'Completed payouts table',items:[
+          {t:'d',v:'Same columns as Pending + Transaction reference + Settled at timestamp'},
+          {t:'d',v:'"Export CSV" button → accounting reconciliation export'},
+          {t:'d',v:'Filter by vendor and date range'},
+        ]},
+        {label:'Failed payouts table',items:[
+          {t:'d',v:'Shows failed payouts with failure reason'},
+          {t:'d',v:'"Retry" button per row → re-opens payout slide-over pre-filled with same vendor + period + amount'},
+        ]},
+      ]
+    },
+  ],
+
+  people:[
+    {
+      num:10, name:'Users', route:'/admin/users',
+      sections:[
+        {label:'Page header + tabs',items:[
+          {t:'d',v:'Title: "Users" with total count'},
+          {t:'design',v:'Three tabs: "Customers" · "Vendors (accounts)" · "Riders" — each showing users with that role'},
+          {t:'d',v:'Note: Vendor dashboard accounts are regular users with role=VENDOR. Vendor profile is separate (see Vendors page).'},
+        ]},
+        {label:'Search and filters (all tabs)',items:[
+          {t:'d',v:'Search: by name, phone, or email (debounced 300ms)'},
+          {t:'d',v:'Status filter: All · Active · Suspended · Unverified'},
+          {t:'d',v:'Sort by: Newest first (default) · Most orders (customers) · Registration date'},
+        ]},
+        {label:'Users table columns',items:[
+          {t:'d',v:'Col: Avatar — 36×36 initials circle (colored by role: customer=blue, vendor=green, rider=amber)'},
+          {t:'d',v:'Col: Name — full name. Muted "Not provided" if null.'},
+          {t:'d',v:'Col: Phone — +91 98100 12345 (unmasked for admin)'},
+          {t:'d',v:'Col: Email — email address or "—" if not provided'},
+          {t:'d',v:'Col: Role badge — Customer (blue) / Vendor (green) / Rider (amber) / Admin (red)'},
+          {t:'d',v:'Col: Verified — green checkmark tick or amber "Unverified" badge'},
+          {t:'d',v:'Col: Status — "Active" (green) or "Suspended" (red)'},
+          {t:'d',v:'Col: Registered — DD MMM YYYY'},
+          {t:'d',v:'Col: Last order — date of most recent order (customers only). "Never" if no orders.'},
+          {t:'d',v:'Col: Actions — "View" icon · "Suspend" icon (red, lock) · "Reinstate" icon (green, unlock)'},
+          {t:'d',v:'Row click → user detail slide-over'},
+        ]},
+        {label:'User detail slide-over',items:[
+          {t:'d',v:'Header: user name + role badge + status badge'},
+          {t:'d',v:'Section: Contact — full phone, email, registered date, last active at'},
+          {t:'d',v:'Section: Stats (for customers) — Total orders · Total spent (₹) · Wallet balance (₹) · Avg order value'},
+          {t:'d',v:'Section: Recent orders (for customers) — last 5 orders table: ID · vendor · amount · date · status'},
+          {t:'d',v:'Section: Wallet (for customers) — current balance + "Credit wallet" button'},
+          {t:'d',v:'"Credit wallet" button → opens modal: amount input + reason textarea → POST /wallet/admin/credit'},
+          {t:'d',v:'Section: For riders — Total deliveries · Total earnings (₹) · Rating · Vehicle type + number'},
+          {t:'d',v:'Section: For vendors — "View vendor profile →" link that opens vendor detail slide-over'},
+          {t:'d',v:'Footer: "Suspend" button (red outline) or "Reinstate" button (green outline) based on status'},
+          {t:'rule',v:'Cannot suspend admin accounts — button disabled with tooltip "Cannot suspend admin users"'},
+        ]},
+        {label:'Suspend user flow',items:[
+          {t:'d',v:'Click Suspend → modal opens'},
+          {t:'d',v:'Modal: "Suspend this user?" + warning "They will not be able to log in until reinstated."'},
+          {t:'d',v:'Reason textarea (required, min 5 chars)'},
+          {t:'d',v:'"Cancel" + "Suspend user" (red) buttons'},
+          {t:'api',v:'PATCH /admin/users/:id/suspend → user isActive=false → all their active sessions invalidated'},
+          {t:'d',v:'Success toast: "User suspended. They will not be able to log in."'},
+        ]},
+      ]
+    },
+    {
+      num:11, name:'Coupons', route:'/admin/coupons',
+      sections:[
+        {label:'Page header',items:[
+          {t:'d',v:'Title: "Coupons" with active count badge (green pill)'},
+          {t:'design',v:'Two tabs: "Active (12)" · "Inactive (8)"'},
+          {t:'a',v:'"+ Create coupon" button (top right, brand red) → Create Coupon slide-over'},
+        ]},
+        {label:'Coupons table columns',items:[
+          {t:'d',v:'Col: Code — monospace font, uppercase (e.g. FIRST50). Copy icon on hover.'},
+          {t:'d',v:'Col: Title — human-readable name (e.g. "50% off on first order")'},
+          {t:'d',v:'Col: Type badge — "₹ FLAT" (blue pill) or "% PERCENT" (green pill)'},
+          {t:'d',v:'Col: Discount — "₹50 off" or "20% off (max ₹100)"'},
+          {t:'d',v:'Col: Min order — "Min ₹200" or "No minimum"'},
+          {t:'d',v:'Col: Usage — "142 used / 500 limit" or "142 used / Unlimited" progress bar visualization'},
+          {t:'d',v:'Col: Applicable — "All users" / "New users" / "Specific vendor" badge'},
+          {t:'d',v:'Col: Expires — "31 Dec 2024" or "Never" in green'},
+          {t:'d',v:'Col: Actions — "Edit" icon · "Deactivate" icon (red, for active) · "Activate" icon (green, for inactive)'},
+          {t:'d',v:'Usage column shows mini progress bar: blue fill representing used/limit ratio. Full bar in red = exhausted.'},
+        ]},
+        {label:'Create coupon slide-over',items:[
+          {t:'d',v:'Header: "Create coupon"'},
+          {t:'d',v:'Field: Coupon code — text input (uppercase enforced automatically while typing). Min 3, max 50 chars. "Generate random" button → generates 8-char alphanumeric code'},
+          {t:'d',v:'Field: Title — text input. "Shown to customers when coupon is applied". Max 100 chars.'},
+          {t:'d',v:'Field: Description — textarea (optional). Internal note. Not shown to customers. Max 300 chars.'},
+          {t:'d',v:'Field: Discount type — two large radio cards: "₹ Flat amount" · "% Percentage". Selected card has brand border.'},
+          {t:'d',v:'Field: Discount value — number input. Label changes: "Amount off (₹)" for Flat, "Percentage off (%)" for Percent. Max value 100 for Percent.'},
+          {t:'d',v:'Field: Max discount cap — number input with ₹ prefix. Only shown if Percentage is selected. Helper: "Maximum savings cap. Leave blank for no cap."'},
+          {t:'rule',v:'Validation: if Percent type and no max cap, show amber warning "Without a cap, a ₹10,000 order gets ₹2,000 off. Add a cap to limit this."'},
+          {t:'d',v:'Field: Minimum order value — number input with ₹ prefix. Default 0. Helper: "Customers need to spend at least this much to use the coupon."'},
+          {t:'d',v:'Field: Total usage limit — number input. Placeholder "Leave blank for unlimited". Helper: "Maximum total times this coupon can be used across all customers."'},
+          {t:'d',v:'Field: Per-user limit — number input. Default 1. Helper: "How many times one customer can use this coupon."'},
+          {t:'d',v:'Field: Applicable for — dropdown: "All users" · "New users only (first order)" · "Specific vendor"'},
+          {t:'d',v:'If "Specific vendor" selected: vendor search dropdown appears below. Searchable by name. Required if Specific vendor selected.'},
+          {t:'d',v:'Field: Active toggle — on by default. Turning off creates an inactive/draft coupon.'},
+          {t:'d',v:'Field: Expiry date — date picker (calendar). Optional. Placeholder "Never expires". Shows selected date in "31 Dec 2024" format.'},
+          {t:'d',v:'Footer: "Cancel" + "Create coupon" (brand red, disabled until required fields filled)'},
+          {t:'api',v:'POST /wallet/admin/coupons → success toast "Coupon FIRST50 created and active"'},
+          {t:'rule',v:'Duplicate code: inline error under code field "This coupon code already exists. Choose a different code."'},
+        ]},
+        {label:'Edit coupon slide-over',items:[
+          {t:'d',v:'Same as Create, pre-populated. Code field is read-only (cannot change code after creation).'},
+          {t:'d',v:'"Code" field shows code in gray non-editable input with lock icon.'},
+          {t:'d',v:'Usage stats shown: "Used 142 times out of 500 limit"'},
+          {t:'api',v:'PUT /wallet/admin/coupons/:id → success toast "Coupon updated"'},
+        ]},
+        {label:'Deactivate coupon flow',items:[
+          {t:'d',v:'Click Deactivate → confirmation modal'},
+          {t:'d',v:'Modal: "Deactivate FIRST50?" · Body: "Customers can no longer use this coupon. Orders that already used it are not affected."'},
+          {t:'d',v:'"Cancel" + "Deactivate" (red) buttons'},
+          {t:'api',v:'DELETE /wallet/admin/coupons/:id (soft delete — sets isActive: false)'},
+          {t:'d',v:'Row moves to Inactive tab immediately after deactivation'},
+        ]},
+      ]
+    },
+  ],
+};
+
+function renderItems(items){
+  return items.map(it=>{
+    const cls = it.t==='action'?'action':it.t==='rule'?'rule':it.t==='design'?'design':it.t==='api'?'api':'';
+    return `<div class="item ${cls}">${it.v}</div>`;
+  }).join('');
+}
+
+function buildScreenList(list){
+  return list.map(s=>{
+    const sectHtml = s.sections.map(sec=>`
+      <div class="sec">
+        <div class="sec-label">${sec.label}</div>
+        <div class="item-list">${renderItems(sec.items)}</div>
+      </div>`).join('');
+    const id=`sc${s.num}`;
+    return `
+<div class="screen-row">
+  <div class="screen-header" onclick="tog('${id}')">
+    <div class="screen-num">${s.num}</div>
+    <div class="screen-name">${s.name}</div>
+    <div class="screen-route">${s.route}</div>
+    <div class="chevron" id="chev-${id}">›</div>
+  </div>
+  <div class="screen-body" id="body-${id}">
+    <div class="body-inner">${sectHtml}</div>
+  </div>
+</div>`;
+  }).join('');
+}
+
+document.getElementById('auth-screens').innerHTML = buildScreenList(allScreens.auth);
+document.getElementById('dash-screens').innerHTML = buildScreenList(allScreens.dash);
+document.getElementById('catalog-screens').innerHTML = buildScreenList(allScreens.catalog);
+document.getElementById('ops-screens').innerHTML = buildScreenList(allScreens.ops);
+document.getElementById('finance-screens').innerHTML = buildScreenList(allScreens.finance);
+document.getElementById('people-screens').innerHTML = buildScreenList(allScreens.people);
+
+function tog(id){
+  const b=document.getElementById('body-'+id);
+  const c=document.getElementById('chev-'+id);
+  const o=b.classList.toggle('open');
+  c.classList.toggle('open',o);
+}
+function sw(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  const tabs=['overview','auth','dash','catalog','ops','finance','people'];
+  document.querySelectorAll('.tab')[tabs.indexOf(id)].classList.add('on');
+  document.getElementById('panel-'+id).classList.add('on');
+}
+</script>
