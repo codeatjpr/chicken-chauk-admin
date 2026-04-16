@@ -17,11 +17,12 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { GripVertical, ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { GripVertical, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm, type Resolver } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { ImageUploadField } from '@/components/forms/image-upload-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -62,7 +63,7 @@ export function CategoriesPage() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState<CatalogCategory | null>(null)
   const [items, setItems] = useState<CatalogCategory[]>([])
-  const imageInputRef = useRef<HTMLInputElement>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['catalog-categories-all'],
@@ -94,7 +95,7 @@ export function CategoriesPage() {
       const nextOrder = items.length ? Math.max(...items.map((c) => c.sortOrder)) + 1 : 0
       form.reset({ name: '', sortOrder: nextOrder })
     }
-    if (imageInputRef.current) imageInputRef.current.value = ''
+    setImageFile(null)
   }, [sheetOpen, editing, items, form])
 
   const createMut = useMutation({
@@ -150,23 +151,22 @@ export function CategoriesPage() {
   }
 
   async function onSubmitForm(values: CategoryFormValues) {
-    const file = imageInputRef.current?.files?.[0] ?? null
     try {
       if (editing) {
         await updateMut.mutateAsync({ id: editing.id, body: values })
-        if (file) await uploadCategoryImage(editing.id, file)
+        if (imageFile) await uploadCategoryImage(editing.id, imageFile)
       } else {
         const created = await createMut.mutateAsync({
           name: values.name.trim(),
           sortOrder: values.sortOrder,
         })
-        if (file) await uploadCategoryImage(created.id, file)
+        if (imageFile) await uploadCategoryImage(created.id, imageFile)
       }
       void queryClient.invalidateQueries({ queryKey: ['catalog-categories-all'] })
       toast.success(editing ? 'Category saved' : 'Category created')
       setSheetOpen(false)
       setEditing(null)
-      if (imageInputRef.current) imageInputRef.current.value = ''
+      setImageFile(null)
     } catch (e) {
       toast.error(getApiErrorMessage(e, 'Save failed'))
     }
@@ -272,17 +272,13 @@ export function CategoriesPage() {
                 <p className="text-destructive text-xs">{form.formState.errors.name.message}</p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label>Image (optional)</Label>
-              {editing?.imageUrl ? (
-                <img src={editing.imageUrl} alt="" className="border-border mb-2 max-h-24 rounded-md border object-contain" />
-              ) : null}
-              <div className="flex items-center gap-2">
-                <Input ref={imageInputRef} id="cat-image" type="file" accept="image/jpeg,image/png" className="text-sm" />
-                <ImagePlus className="text-muted-foreground size-4 shrink-0" aria-hidden />
-              </div>
-              <p className="text-muted-foreground text-xs">JPEG or PNG. Saved after create/update.</p>
-            </div>
+            <ImageUploadField
+              label="Image (optional)"
+              file={imageFile}
+              onFileChange={setImageFile}
+              currentImageUrl={editing?.imageUrl}
+              hint="JPEG or PNG. Selected image previews before save."
+            />
             <div className="space-y-2">
               <Label htmlFor="cat-order">Sort order</Label>
               <Input

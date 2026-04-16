@@ -3,6 +3,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { LocationPinMap } from "@/components/maps/location-pin-map";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -19,6 +20,8 @@ import {
   adminRejectVendorDocument,
   adminSetVendorOnboardingBank,
   adminSetVendorOnboardingTimings,
+  adminUploadVendorBanner,
+  adminUploadVendorLogo,
   adminUnverifyVendorBank,
   adminVerifyVendorBank,
   getVendorAdminDetail,
@@ -58,8 +61,8 @@ export function VendorAdminDetailPage() {
   const [prepTime, setPrepTime] = useState("");
   const [minOrderAmount, setMinOrderAmount] = useState("");
   const [deliveryRadiusKm, setDeliveryRadiusKm] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
-  const [bannerUrl, setBannerUrl] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
 
   const [timings, setTimings] = useState<VendorTimingInput[]>([]);
   const [bankHolder, setBankHolder] = useState("");
@@ -93,8 +96,8 @@ export function VendorAdminDetailPage() {
     setPrepTime(String(v.prepTime));
     setMinOrderAmount(String(v.minOrderAmount));
     setDeliveryRadiusKm(String(v.deliveryRadiusKm));
-    setLogoUrl(v.logoUrl ?? "");
-    setBannerUrl(v.bannerUrl ?? "");
+    setLogoFile(null);
+    setBannerFile(null);
 
     const t = v.timings
       .slice()
@@ -156,12 +159,14 @@ export function VendorAdminDetailPage() {
         prepTime: Number(prepTime) || 20,
         minOrderAmount: Number(minOrderAmount) || 0,
         deliveryRadiusKm: Number(deliveryRadiusKm) || 3,
-        ...(logoUrl.trim() ? { logoUrl: logoUrl.trim() } : { logoUrl: "" }),
-        ...(bannerUrl.trim() ? { bannerUrl: bannerUrl.trim() } : { bannerUrl: "" }),
       });
+      if (logoFile) await adminUploadVendorLogo(vendorId, logoFile);
+      if (bannerFile) await adminUploadVendorBanner(vendorId, bannerFile);
     },
     onSuccess: () => {
       invalidateLists();
+      setLogoFile(null);
+      setBannerFile(null);
       toast.success("Profile saved");
     },
     onError: (e) => toast.error(getApiErrorMessage(e, "Save failed")),
@@ -391,8 +396,28 @@ export function VendorAdminDetailPage() {
             <Field label="Min order (₹)" value={minOrderAmount} onChange={setMinOrderAmount} disabled={isViewOnly} />
             <Field label="Delivery radius (km)" value={deliveryRadiusKm} onChange={setDeliveryRadiusKm} disabled={isViewOnly} />
             <Field label="Description" value={description} onChange={setDescription} className="sm:col-span-2" disabled={isViewOnly} />
-            <Field label="Logo URL" value={logoUrl} onChange={setLogoUrl} className="sm:col-span-2" disabled={isViewOnly} />
-            <Field label="Banner URL" value={bannerUrl} onChange={setBannerUrl} className="sm:col-span-2" disabled={isViewOnly} />
+            <ImageUploadField
+              label="Logo image"
+              file={logoFile}
+              onFileChange={setLogoFile}
+              currentImageUrl={v.logoUrl}
+              className="sm:col-span-2"
+              previewClassName="w-full"
+              disabled={isViewOnly}
+              hint={isViewOnly ? undefined : "Upload a new logo file to replace the existing one."}
+              emptyLabel="No logo uploaded"
+            />
+            <ImageUploadField
+              label="Banner image"
+              file={bannerFile}
+              onFileChange={setBannerFile}
+              currentImageUrl={v.bannerUrl}
+              className="sm:col-span-2"
+              previewClassName="w-full"
+              disabled={isViewOnly}
+              hint={isViewOnly ? undefined : "Upload a new banner file to replace the existing one."}
+              emptyLabel="No banner uploaded"
+            />
             {!isViewOnly ? (
               <div className="flex justify-end sm:col-span-2">
                 <Button type="button" disabled={saveProfileMut.isPending} onClick={() => saveProfileMut.mutate()}>

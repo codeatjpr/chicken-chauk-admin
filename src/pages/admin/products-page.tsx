@@ -1,10 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ImagePlus, Pencil, Plus, Store } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm, type Resolver } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { ImageUploadField } from '@/components/forms/image-upload-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -55,7 +56,7 @@ export function ProductsPage() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState<MasterProduct | null>(null)
   const [usageProduct, setUsageProduct] = useState<MasterProduct | null>(null)
-  const sheetImageRef = useRef<HTMLInputElement>(null)
+  const [sheetImageFile, setSheetImageFile] = useState<File | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300)
@@ -107,7 +108,6 @@ export function ProductsPage() {
         unit: 'KG',
       })
     }
-    if (sheetImageRef.current) sheetImageRef.current.value = ''
   }, [sheetOpen, editing, form, categories])
 
   const createMut = useMutation({
@@ -134,20 +134,21 @@ export function ProductsPage() {
 
   function openCreate() {
     setEditing(null)
+    setSheetImageFile(null)
     setSheetOpen(true)
   }
 
   function openEdit(p: MasterProduct) {
     setEditing(p)
+    setSheetImageFile(null)
     setSheetOpen(true)
   }
 
   async function onSubmitForm(values: ProductFormValues) {
-    const file = sheetImageRef.current?.files?.[0] ?? null
     try {
       if (editing) {
         await updateMut.mutateAsync({ id: editing.id, body: values })
-        if (file) await uploadMasterProductImage(editing.id, file)
+        if (sheetImageFile) await uploadMasterProductImage(editing.id, sheetImageFile)
       } else {
         const p = await createMut.mutateAsync({
           categoryId: values.categoryId,
@@ -155,13 +156,13 @@ export function ProductsPage() {
           description: values.description?.trim() || undefined,
           unit: values.unit,
         })
-        if (file) await uploadMasterProductImage(p.id, file)
+        if (sheetImageFile) await uploadMasterProductImage(p.id, sheetImageFile)
       }
       void queryClient.invalidateQueries({ queryKey: ['master-products'] })
       toast.success(editing ? 'Product saved' : 'Product created')
       setSheetOpen(false)
       setEditing(null)
-      if (sheetImageRef.current) sheetImageRef.current.value = ''
+      setSheetImageFile(null)
     } catch (e) {
       toast.error(getApiErrorMessage(e, 'Save failed'))
     }
@@ -422,20 +423,17 @@ export function ProductsPage() {
               <Label htmlFor="p-desc">Description</Label>
               <textarea
                 id="p-desc"
-                className="border-input bg-background min-h-[4rem] w-full rounded-lg border px-2.5 py-2 text-sm"
+                className="border-input bg-background min-h-16 w-full rounded-lg border px-2.5 py-2 text-sm"
                 {...form.register('description')}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Image (optional)</Label>
-              {editing?.imageUrl ? (
-                <img src={editing.imageUrl} alt="" className="border-border mb-2 max-h-24 rounded-md border object-contain" />
-              ) : null}
-              <Input ref={sheetImageRef} id="p-image" type="file" accept="image/jpeg,image/png" className="text-sm" />
-              <p className="text-muted-foreground text-xs">
-                Or use the row “upload” button. JPEG/PNG, stored on S3.
-              </p>
-            </div>
+            <ImageUploadField
+              label="Image (optional)"
+              file={sheetImageFile}
+              onFileChange={setSheetImageFile}
+              currentImageUrl={editing?.imageUrl}
+              hint="JPEG/PNG. Selected image previews before save. You can also use the row upload button."
+            />
             <div className="space-y-2">
               <Label htmlFor="p-unit">Unit</Label>
               <select

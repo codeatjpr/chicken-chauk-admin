@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImagePlus, Pencil, Plus, PowerOff } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
+import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,26 +56,12 @@ export function BannersPage() {
   const [endsAtLocal, setEndsAtLocal] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [createImage, setCreateImage] = useState<File | null>(null);
+  const [editImage, setEditImage] = useState<File | null>(null);
 
   const listQ = useQuery({
     queryKey: ["admin-banners", page],
     queryFn: () => listBanners(page, limit),
   });
-
-  useEffect(() => {
-    if (sheetMode !== "edit" || !editRow) return;
-    const b = editRow;
-    setTitle(b.title);
-    setLinkType(b.linkType as BannerLinkType);
-    setLinkId(b.linkId ?? "");
-    setExternalUrl(b.externalUrl ?? "");
-    setCity(b.city ?? "");
-    setSortOrder(String(b.sortOrder));
-    setStartsAtLocal(localFromIso(b.startsAt));
-    setEndsAtLocal(localFromIso(b.endsAt));
-    setIsActive(b.isActive);
-    setCreateImage(null);
-  }, [sheetMode, editRow]);
 
   function openCreate() {
     setEditRow(null);
@@ -89,10 +76,22 @@ export function BannersPage() {
     setEndsAtLocal("");
     setIsActive(true);
     setCreateImage(null);
+    setEditImage(null);
   }
 
   function openEdit(row: BannerRow) {
     setEditRow(row);
+    setTitle(row.title);
+    setLinkType(row.linkType as BannerLinkType);
+    setLinkId(row.linkId ?? "");
+    setExternalUrl(row.externalUrl ?? "");
+    setCity(row.city ?? "");
+    setSortOrder(String(row.sortOrder));
+    setStartsAtLocal(localFromIso(row.startsAt));
+    setEndsAtLocal(localFromIso(row.endsAt));
+    setIsActive(row.isActive);
+    setCreateImage(null);
+    setEditImage(null);
     setSheetMode("edit");
   }
 
@@ -100,6 +99,7 @@ export function BannersPage() {
     setSheetMode(null);
     setEditRow(null);
     setCreateImage(null);
+    setEditImage(null);
   }
 
   const createMut = useMutation({
@@ -135,16 +135,18 @@ export function BannersPage() {
   });
 
   const updateMut = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (linkType === "STATIC") {
-        return updateBanner(editRow!.id, {
+        const updated = await updateBanner(editRow!.id, {
           title: title.trim(),
           linkType: "STATIC",
           linkId: null,
           externalUrl: null,
         });
+        if (editImage) await replaceBannerImage(editRow!.id, editImage);
+        return updated;
       }
-      return updateBanner(editRow!.id, {
+      const updated = await updateBanner(editRow!.id, {
         title: title.trim(),
         linkType,
         linkId: linkType === "EXTERNAL" ? null : linkId.trim() || null,
@@ -155,6 +157,8 @@ export function BannersPage() {
         endsAt: endsAtLocal ? (toIsoFromLocal(endsAtLocal) ?? null) : null,
         isActive,
       });
+      if (editImage) await replaceBannerImage(editRow!.id, editImage);
+      return updated;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-banners"] });
@@ -242,7 +246,7 @@ export function BannersPage() {
                         <td className="py-2 pr-4 font-medium">{row.title}</td>
                         <td className="py-2 pr-4">
                           <span className="text-muted-foreground text-xs">{row.linkType}</span>
-                          <p className="max-w-[10rem] truncate text-xs">
+                          <p className="max-w-40 truncate text-xs">
                             {row.linkType === "STATIC" ? "—" : (row.externalUrl ?? row.linkId ?? "—")}
                           </p>
                         </td>
@@ -325,16 +329,25 @@ export function BannersPage() {
             </SheetDescription>
           </SheetHeader>
           <div className="space-y-3 px-4 pb-4">
-            {sheetMode === "create" && (
-              <div className="space-y-1">
-                <Label htmlFor="bn-img">Image</Label>
-                <Input
-                  id="bn-img"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(e) => setCreateImage(e.target.files?.[0] ?? null)}
-                />
-              </div>
+            {sheetMode === "create" ? (
+              <ImageUploadField
+                label="Image"
+                file={createImage}
+                onFileChange={setCreateImage}
+                accept="image/jpeg,image/png,image/webp"
+                previewClassName="w-full object-cover"
+                hint="Banner image previews before create."
+              />
+            ) : (
+              <ImageUploadField
+                label="Replace image (optional)"
+                file={editImage}
+                onFileChange={setEditImage}
+                currentImageUrl={editRow?.imageUrl}
+                accept="image/jpeg,image/png,image/webp"
+                previewClassName="w-full object-cover"
+                hint="Pick a new image only if you want to replace the current banner."
+              />
             )}
             <div className="space-y-1">
               <Label>Title</Label>

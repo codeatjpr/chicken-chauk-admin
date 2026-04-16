@@ -274,3 +274,21 @@ export async function adminPatchVendorOnboardingProfile(
   );
   return assertData(data, "Failed to update profile");
 }
+
+export async function adminUploadVendorLogo(
+  vendorId: string,
+  file: File,
+): Promise<VendorAdminDetail> {
+  const fd = new FormData();
+  fd.append("image", file);
+  return adminPostFormData<VendorAdminDetail>(`/vendors/admin/${vendorId}/logo`, fd);
+}
+
+export async function adminUploadVendorBanner(
+  vendorId: string,
+  file: File,
+): Promise<VendorAdminDetail> {
+  const fd = new FormData();
+  fd.append("image", file);
+  return adminPostFormData<VendorAdminDetail>(`/vendors/admin/${vendorId}/banner`, fd);
+}

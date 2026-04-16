@@ -3,6 +3,7 @@ import { Check, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { ImageUploadField } from '@/components/forms/image-upload-field'
 import { LocationPinMap } from '@/components/maps/location-pin-map'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,9 +13,10 @@ import { getApiErrorMessage } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
 import {
   adminCreateVendorOnboarding,
-  adminPatchVendorOnboardingProfile,
   adminSetVendorOnboardingBank,
   adminSetVendorOnboardingTimings,
+  adminUploadVendorBanner,
+  adminUploadVendorLogo,
   adminUploadVendorOnboardingDocument,
   approveVendor,
   type AdminCreateVendorBody,
@@ -77,8 +79,8 @@ export function VendorAdminCreatePage() {
   const [prepTime, setPrepTime] = useState('20')
   const [minOrderAmount, setMinOrderAmount] = useState('0')
   const [deliveryRadiusKm, setDeliveryRadiusKm] = useState('3')
-  const [logoUrl, setLogoUrl] = useState('')
-  const [bannerUrl, setBannerUrl] = useState('')
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [bannerFile, setBannerFile] = useState<File | null>(null)
 
   const [docFiles, setDocFiles] = useState<Partial<Record<(typeof DOC_TYPES)[number], File | null>>>({})
   const [timings, setTimings] = useState<VendorTimingInput[]>(defaultTimings)
@@ -126,12 +128,8 @@ export function VendorAdminCreatePage() {
       if (description.trim()) body.description = description.trim()
       const v = await adminCreateVendorOnboarding(body)
       setVendorId(v.id)
-      if (logoUrl.trim() || bannerUrl.trim()) {
-        await adminPatchVendorOnboardingProfile(v.id, {
-          ...(logoUrl.trim() ? { logoUrl: logoUrl.trim() } : {}),
-          ...(bannerUrl.trim() ? { bannerUrl: bannerUrl.trim() } : {}),
-        })
-      }
+      if (logoFile) await adminUploadVendorLogo(v.id, logoFile)
+      if (bannerFile) await adminUploadVendorBanner(v.id, bannerFile)
       return v
     },
     onSuccess: () => {
@@ -338,8 +336,22 @@ export function VendorAdminCreatePage() {
             <Field label="Min order (₹)" value={minOrderAmount} onChange={setMinOrderAmount} />
             <Field label="Delivery radius (km)" value={deliveryRadiusKm} onChange={setDeliveryRadiusKm} />
             <Field label="Description (optional)" value={description} onChange={setDescription} className="sm:col-span-2" />
-            <Field label="Logo URL (optional)" value={logoUrl} onChange={setLogoUrl} className="sm:col-span-2" />
-            <Field label="Banner URL (optional)" value={bannerUrl} onChange={setBannerUrl} className="sm:col-span-2" />
+            <ImageUploadField
+              label="Logo image (optional)"
+              file={logoFile}
+              onFileChange={setLogoFile}
+              className="sm:col-span-2"
+              previewClassName="w-full"
+              hint="Upload a shop logo instead of pasting a URL."
+            />
+            <ImageUploadField
+              label="Banner image (optional)"
+              file={bannerFile}
+              onFileChange={setBannerFile}
+              className="sm:col-span-2"
+              previewClassName="w-full"
+              hint="Upload a wide banner instead of pasting a URL."
+            />
             {step1Hint && (
               <p className="text-muted-foreground border-destructive/30 bg-destructive/5 rounded-md border px-3 py-2 text-sm sm:col-span-2">
                 {step1Hint}
