@@ -162,6 +162,8 @@ export function LocationPinMap({
       mapRef.current = null
       markerRef.current = null
     }
+    // Init only: external lat/lng updates are handled by the effect below; including them here would remount the map.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- latitude/longitude intentionally omitted
   }, [readOnly])
 
   useEffect(() => {

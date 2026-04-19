@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ImageUploadField } from "@/components/forms/image-upload-field";
@@ -35,6 +35,7 @@ import {
   adminUnverifyVendorBank,
   adminVerifyVendorBank,
   getVendorAdminDetail,
+  type VendorAdminDetail,
   type VendorDocumentRow,
   type VendorTimingInput,
 } from "@/services/vendors-admin.service";
@@ -51,35 +52,109 @@ const DOC_LABELS: Record<string, string> = {
 
 type Tab = "overview" | "hours" | "bank" | "documents";
 
+function timingsFromVendor(v: VendorAdminDetail): VendorTimingInput[] {
+  const t = v.timings
+    .slice()
+    .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+    .map((x) => ({
+      dayOfWeek: x.dayOfWeek,
+      openTime: x.openTime,
+      closeTime: x.closeTime,
+      isClosed: x.isClosed,
+    }));
+  if (t.length === 7) return t;
+  return Array.from({ length: 7 }, (_, dayOfWeek) => {
+    const found = v.timings.find((d) => d.dayOfWeek === dayOfWeek);
+    return (
+      found ?? {
+        dayOfWeek,
+        openTime: "09:00",
+        closeTime: "22:00",
+        isClosed: false,
+      }
+    );
+  });
+}
+
 export function VendorAdminDetailPage() {
   const { vendorId } = useParams<{ vendorId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isViewOnly = searchParams.get("view") === "1";
+
+  const detailQ = useQuery({
+    queryKey: ["vendor-admin-detail", vendorId],
+    queryFn: () => getVendorAdminDetail(vendorId!),
+    enabled: !!vendorId,
+  });
+
+  if (!vendorId) {
+    return <p className="text-muted-foreground text-sm">Invalid vendor.</p>;
+  }
+
+  if (detailQ.isLoading) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-4">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  if (detailQ.isError || !detailQ.data) {
+    return (
+      <div className="space-y-4">
+        <p className="text-destructive text-sm">Could not load vendor.</p>
+        <Button type="button" variant="outline" onClick={() => navigate("/admin/vendors")}>
+          Back to vendors
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <VendorAdminDetailLoaded
+      key={vendorId}
+      vendorId={vendorId}
+      vendor={detailQ.data}
+      isViewOnly={isViewOnly}
+    />
+  );
+}
+
+function VendorAdminDetailLoaded({
+  vendorId,
+  vendor: v,
+  isViewOnly,
+}: {
+  vendorId: string;
+  vendor: VendorAdminDetail;
+  isViewOnly: boolean;
+}) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("overview");
 
-  const [name, setName] = useState("");
-  const [ownerName, setOwnerName] = useState("");
-  const [email, setEmail] = useState("");
-  const [description, setDescription] = useState("");
-  const [addressLine, setAddressLine] = useState("");
-  const [city, setCity] = useState("");
-  const [pincode, setPincode] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
-  const [prepTime, setPrepTime] = useState("");
-  const [minOrderAmount, setMinOrderAmount] = useState("");
-  const [deliveryRadiusKm, setDeliveryRadiusKm] = useState("");
+  const [name, setName] = useState(v.name);
+  const [ownerName, setOwnerName] = useState(v.ownerName);
+  const [email, setEmail] = useState(v.email ?? "");
+  const [description, setDescription] = useState(v.description ?? "");
+  const [addressLine, setAddressLine] = useState(v.addressLine);
+  const [city, setCity] = useState(v.city);
+  const [pincode, setPincode] = useState(v.pincode);
+  const [latitude, setLatitude] = useState(String(v.latitude));
+  const [longitude, setLongitude] = useState(String(v.longitude));
+  const [prepTime, setPrepTime] = useState(String(v.prepTime));
+  const [minOrderAmount, setMinOrderAmount] = useState(String(v.minOrderAmount));
+  const [deliveryRadiusKm, setDeliveryRadiusKm] = useState(String(v.deliveryRadiusKm));
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
 
-  const [timings, setTimings] = useState<VendorTimingInput[]>([]);
-  const [bankHolder, setBankHolder] = useState("");
-  const [bankNumber, setBankNumber] = useState("");
-  const [bankIfsc, setBankIfsc] = useState("");
-  const [bankName, setBankName] = useState("");
-  const [bankUpi, setBankUpi] = useState("");
+  const [timings, setTimings] = useState<VendorTimingInput[]>(() => timingsFromVendor(v));
+  const [bankHolder, setBankHolder] = useState(() => v.bankDetails?.accountHolderName ?? "");
+  const [bankNumber, setBankNumber] = useState(() => v.bankDetails?.accountNumber ?? "");
+  const [bankIfsc, setBankIfsc] = useState(() => v.bankDetails?.ifscCode ?? "");
+  const [bankName, setBankName] = useState(() => v.bankDetails?.bankName ?? "");
+  const [bankUpi, setBankUpi] = useState(() => v.bankDetails?.upiId ?? "");
 
   const [rejectDoc, setRejectDoc] = useState<VendorDocumentRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -113,66 +188,6 @@ export function VendorAdminDetailPage() {
     setActionDialog((s) => ({ ...s, open: false }));
     run?.();
   }
-
-  const detailQ = useQuery({
-    queryKey: ["vendor-admin-detail", vendorId],
-    queryFn: () => getVendorAdminDetail(vendorId!),
-    enabled: !!vendorId,
-  });
-
-  const v = detailQ.data;
-
-  useEffect(() => {
-    if (!v) return;
-    setName(v.name);
-    setOwnerName(v.ownerName);
-    setEmail(v.email ?? "");
-    setDescription(v.description ?? "");
-    setAddressLine(v.addressLine);
-    setCity(v.city);
-    setPincode(v.pincode);
-    setLatitude(String(v.latitude));
-    setLongitude(String(v.longitude));
-    setPrepTime(String(v.prepTime));
-    setMinOrderAmount(String(v.minOrderAmount));
-    setDeliveryRadiusKm(String(v.deliveryRadiusKm));
-    setLogoFile(null);
-    setBannerFile(null);
-
-    const t = v.timings
-      .slice()
-      .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
-      .map((x) => ({
-        dayOfWeek: x.dayOfWeek,
-        openTime: x.openTime,
-        closeTime: x.closeTime,
-        isClosed: x.isClosed,
-      }));
-    if (t.length === 7) {
-      setTimings(t);
-    } else {
-      setTimings(
-        Array.from({ length: 7 }, (_, dayOfWeek) => {
-          const found = v.timings.find((d) => d.dayOfWeek === dayOfWeek);
-          return (
-            found ?? {
-              dayOfWeek,
-              openTime: "09:00",
-              closeTime: "22:00",
-              isClosed: false,
-            }
-          );
-        }),
-      );
-    }
-
-    const b = v.bankDetails;
-    setBankHolder(b?.accountHolderName ?? "");
-    setBankNumber(b?.accountNumber ?? "");
-    setBankIfsc(b?.ifscCode ?? "");
-    setBankName(b?.bankName ?? "");
-    setBankUpi(b?.upiId ?? "");
-  }, [v]);
 
   const invalidateLists = () => {
     void queryClient.invalidateQueries({ queryKey: ["vendors-pending"] });
@@ -311,30 +326,6 @@ export function VendorAdminDetailPage() {
 
   function updateTiming(day: number, patch: Partial<VendorTimingInput>) {
     setTimings((prev) => prev.map((t) => (t.dayOfWeek === day ? { ...t, ...patch } : t)));
-  }
-
-  if (!vendorId) {
-    return <p className="text-muted-foreground text-sm">Invalid vendor.</p>;
-  }
-
-  if (detailQ.isLoading) {
-    return (
-      <div className="mx-auto max-w-4xl space-y-4">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
-  }
-
-  if (detailQ.isError || !v) {
-    return (
-      <div className="space-y-4">
-        <p className="text-destructive text-sm">Could not load vendor.</p>
-        <Button type="button" variant="outline" onClick={() => navigate("/admin/vendors")}>
-          Back to vendors
-        </Button>
-      </div>
-    );
   }
 
   const editHref = `/admin/vendors/${vendorId}`;
