@@ -1,10 +1,20 @@
 import { useMutation } from '@tanstack/react-query'
 import { Check, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ImageUploadField } from '@/components/forms/image-upload-field'
 import { LocationPinMap } from '@/components/maps/location-pin-map'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -90,6 +100,36 @@ export function VendorAdminCreatePage() {
   const [bankIfsc, setBankIfsc] = useState('')
   const [bankName, setBankName] = useState('')
   const [bankUpi, setBankUpi] = useState('')
+
+  const actionRunRef = useRef<(() => void) | null>(null)
+  const [actionDialog, setActionDialog] = useState<{
+    open: boolean
+    title: string
+    description: string
+    destructive?: boolean
+  }>({ open: false, title: '', description: '' })
+
+  function requestActionConfirm(opts: {
+    title: string
+    description: string
+    destructive?: boolean
+    run: () => void
+  }) {
+    actionRunRef.current = opts.run
+    setActionDialog({
+      open: true,
+      title: opts.title,
+      description: opts.description,
+      destructive: opts.destructive,
+    })
+  }
+
+  function flushActionConfirm() {
+    const run = actionRunRef.current
+    actionRunRef.current = null
+    setActionDialog((s) => ({ ...s, open: false }))
+    run?.()
+  }
 
   const createMut = useMutation({
     mutationFn: async () => {
@@ -361,7 +401,17 @@ export function VendorAdminCreatePage() {
               <Link to="/admin/vendors" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'inline-flex')}>
                 Cancel
               </Link>
-              <Button type="button" disabled={!step1Ok || createMut.isPending} onClick={() => createMut.mutate()}>
+              <Button
+                type="button"
+                disabled={!step1Ok || createMut.isPending}
+                onClick={() =>
+                  requestActionConfirm({
+                    title: 'Create vendor account?',
+                    description: `Creates the shop “${name.trim()}” and owner login. You can continue with documents next.`,
+                    run: () => createMut.mutate(),
+                  })
+                }
+              >
                 {createMut.isPending ? (
                   <>
                     <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -403,7 +453,17 @@ export function VendorAdminCreatePage() {
                 <ChevronLeft className="size-4" aria-hidden />
                 Back
               </Button>
-              <Button type="button" disabled={docsMut.isPending} onClick={() => docsMut.mutate()}>
+              <Button
+                type="button"
+                disabled={docsMut.isPending}
+                onClick={() =>
+                  requestActionConfirm({
+                    title: 'Upload selected documents?',
+                    description: 'Files you picked will be sent to compliance storage for this vendor.',
+                    run: () => docsMut.mutate(),
+                  })
+                }
+              >
                 {docsMut.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : 'Upload & continue'}
               </Button>
             </div>
@@ -459,7 +519,17 @@ export function VendorAdminCreatePage() {
                 <ChevronLeft className="size-4" aria-hidden />
                 Back
               </Button>
-              <Button type="button" disabled={timingsMut.isPending} onClick={() => timingsMut.mutate()}>
+              <Button
+                type="button"
+                disabled={timingsMut.isPending}
+                onClick={() =>
+                  requestActionConfirm({
+                    title: 'Save operating hours?',
+                    description: 'Stores the weekly schedule for this vendor.',
+                    run: () => timingsMut.mutate(),
+                  })
+                }
+              >
                 {timingsMut.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : 'Save & continue'}
               </Button>
             </div>
@@ -494,7 +564,17 @@ export function VendorAdminCreatePage() {
                 <ChevronLeft className="size-4" aria-hidden />
                 Back
               </Button>
-              <Button type="button" disabled={bankMut.isPending} onClick={() => bankMut.mutate()}>
+              <Button
+                type="button"
+                disabled={bankMut.isPending}
+                onClick={() =>
+                  requestActionConfirm({
+                    title: 'Save payout details?',
+                    description: 'Saves UPI and/or bank account for settlements.',
+                    run: () => bankMut.mutate(),
+                  })
+                }
+              >
                 {bankMut.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : 'Save & continue'}
               </Button>
             </div>
@@ -526,13 +606,54 @@ export function VendorAdminCreatePage() {
                 <ChevronLeft className="size-4" aria-hidden />
                 Back
               </Button>
-              <Button type="button" disabled={approveMut.isPending} onClick={() => approveMut.mutate()}>
+              <Button
+                type="button"
+                disabled={approveMut.isPending}
+                onClick={() =>
+                  requestActionConfirm({
+                    title: 'Approve vendor on marketplace?',
+                    description: 'This activates the shop so it can receive orders.',
+                    destructive: false,
+                    run: () => approveMut.mutate(),
+                  })
+                }
+              >
                 {approveMut.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : 'Approve vendor'}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog
+        open={actionDialog.open}
+        onOpenChange={(o) => {
+          if (!o) {
+            actionRunRef.current = null
+            setActionDialog((s) => ({ ...s, open: false }))
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{actionDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{actionDialog.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={
+                actionDialog.destructive
+                  ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                  : undefined
+              }
+              onClick={() => flushActionConfirm()}
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

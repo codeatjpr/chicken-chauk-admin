@@ -1,10 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ImageUploadField } from "@/components/forms/image-upload-field";
 import { LocationPinMap } from "@/components/maps/location-pin-map";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,6 +83,36 @@ export function VendorAdminDetailPage() {
 
   const [rejectDoc, setRejectDoc] = useState<VendorDocumentRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+
+  const actionRunRef = useRef<(() => void) | null>(null);
+  const [actionDialog, setActionDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    destructive?: boolean;
+  }>({ open: false, title: "", description: "" });
+
+  function requestActionConfirm(opts: {
+    title: string;
+    description: string;
+    destructive?: boolean;
+    run: () => void;
+  }) {
+    actionRunRef.current = opts.run;
+    setActionDialog({
+      open: true,
+      title: opts.title,
+      description: opts.description,
+      destructive: opts.destructive,
+    });
+  }
+
+  function flushActionConfirm() {
+    const run = actionRunRef.current;
+    actionRunRef.current = null;
+    setActionDialog((s) => ({ ...s, open: false }));
+    run?.();
+  }
 
   const detailQ = useQuery({
     queryKey: ["vendor-admin-detail", vendorId],
@@ -420,7 +460,16 @@ export function VendorAdminDetailPage() {
             />
             {!isViewOnly ? (
               <div className="flex justify-end sm:col-span-2">
-                <Button type="button" disabled={saveProfileMut.isPending} onClick={() => saveProfileMut.mutate()}>
+                <Button
+                  type="button"
+                  disabled={saveProfileMut.isPending}
+                  onClick={() =>
+                    requestActionConfirm({
+                      title: "Save profile?",
+                      description: "Updates shop details on file and uploads a new logo or banner if you selected files.",
+                      run: () => saveProfileMut.mutate(),
+                    })
+                  }>
                   {saveProfileMut.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : "Save profile"}
                 </Button>
               </div>
@@ -498,7 +547,16 @@ export function VendorAdminDetailPage() {
             ))}
             {!isViewOnly ? (
               <div className="flex justify-end pt-2">
-                <Button type="button" disabled={saveHoursMut.isPending} onClick={() => saveHoursMut.mutate()}>
+                <Button
+                  type="button"
+                  disabled={saveHoursMut.isPending}
+                  onClick={() =>
+                    requestActionConfirm({
+                      title: "Save operating hours?",
+                      description: "Replaces the weekly schedule shown to customers.",
+                      run: () => saveHoursMut.mutate(),
+                    })
+                  }>
                   {saveHoursMut.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : "Save hours"}
                 </Button>
               </div>
@@ -540,7 +598,13 @@ export function VendorAdminDetailPage() {
                       type="button"
                       size="sm"
                       disabled={verifyBankMut.isPending || unverifyBankMut.isPending}
-                      onClick={() => verifyBankMut.mutate()}>
+                      onClick={() =>
+                        requestActionConfirm({
+                          title: "Verify bank details?",
+                          description: "Mark payout details as verified after you have checked them against your records.",
+                          run: () => verifyBankMut.mutate(),
+                        })
+                      }>
                       {verifyBankMut.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : "Verify"}
                     </Button>
                   ) : (
@@ -549,7 +613,14 @@ export function VendorAdminDetailPage() {
                       size="sm"
                       variant="outline"
                       disabled={verifyBankMut.isPending || unverifyBankMut.isPending}
-                      onClick={() => unverifyBankMut.mutate()}>
+                      onClick={() =>
+                        requestActionConfirm({
+                          title: "Remove bank verification?",
+                          description: "Clears the verified flag so you can re-check details later.",
+                          destructive: true,
+                          run: () => unverifyBankMut.mutate(),
+                        })
+                      }>
                       {unverifyBankMut.isPending ? (
                         <Loader2 className="size-4 animate-spin" aria-hidden />
                       ) : (
@@ -581,7 +652,13 @@ export function VendorAdminDetailPage() {
                           type="button"
                           size="sm"
                           disabled={verifyBankMut.isPending || unverifyBankMut.isPending}
-                          onClick={() => verifyBankMut.mutate()}>
+                          onClick={() =>
+                            requestActionConfirm({
+                              title: "Verify bank details?",
+                              description: "Mark payout details as verified after you have checked them against your records.",
+                              run: () => verifyBankMut.mutate(),
+                            })
+                          }>
                           {verifyBankMut.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : "Verify"}
                         </Button>
                       ) : (
@@ -590,7 +667,14 @@ export function VendorAdminDetailPage() {
                           size="sm"
                           variant="outline"
                           disabled={verifyBankMut.isPending || unverifyBankMut.isPending}
-                          onClick={() => unverifyBankMut.mutate()}>
+                          onClick={() =>
+                            requestActionConfirm({
+                              title: "Remove bank verification?",
+                              description: "Clears the verified flag so you can re-check details later.",
+                              destructive: true,
+                              run: () => unverifyBankMut.mutate(),
+                            })
+                          }>
                           {unverifyBankMut.isPending ? (
                             <Loader2 className="size-4 animate-spin" aria-hidden />
                           ) : (
@@ -600,7 +684,16 @@ export function VendorAdminDetailPage() {
                       )
                     ) : null}
                   </div>
-                  <Button type="button" disabled={saveBankMut.isPending} onClick={() => saveBankMut.mutate()}>
+                  <Button
+                    type="button"
+                    disabled={saveBankMut.isPending}
+                    onClick={() =>
+                      requestActionConfirm({
+                        title: "Save payout details?",
+                        description: "Updates UPI / bank fields. Saving changed values may clear verification.",
+                        run: () => saveBankMut.mutate(),
+                      })
+                    }>
                     {saveBankMut.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : "Save payout details"}
                   </Button>
                 </div>
@@ -653,7 +746,13 @@ export function VendorAdminDetailPage() {
                             type="button"
                             size="sm"
                             disabled={approveDocMut.isPending || rejectDocMut.isPending}
-                            onClick={() => approveDocMut.mutate(d.id)}>
+                            onClick={() =>
+                              requestActionConfirm({
+                                title: "Approve document?",
+                                description: `Mark ${DOC_LABELS[d.type] ?? d.type} as verified for this vendor.`,
+                                run: () => approveDocMut.mutate(d.id),
+                              })
+                            }>
                             {approveDocMut.isPending ? (
                               <Loader2 className="size-4 animate-spin" aria-hidden />
                             ) : (
@@ -681,6 +780,32 @@ export function VendorAdminDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog
+        open={actionDialog.open}
+        onOpenChange={(o) => {
+          if (!o) {
+            actionRunRef.current = null;
+            setActionDialog((s) => ({ ...s, open: false }));
+          }
+        }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{actionDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{actionDialog.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={
+                actionDialog.destructive ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : undefined
+              }
+              onClick={() => flushActionConfirm()}>
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Sheet
         open={!!rejectDoc}
@@ -728,9 +853,19 @@ export function VendorAdminDetailPage() {
                   toast.error("Reason must be at least 10 characters.");
                   return;
                 }
-                rejectDocMut.mutate({ documentId: rejectDoc.id, reason: r });
+                const documentId = rejectDoc.id;
+                requestActionConfirm({
+                  title: "Reject document?",
+                  description: `The vendor will see your reason for ${DOC_LABELS[rejectDoc.type] ?? rejectDoc.type}.`,
+                  destructive: true,
+                  run: () => {
+                    rejectDocMut.mutate({ documentId, reason: r });
+                    setRejectDoc(null);
+                    setRejectReason("");
+                  },
+                });
               }}>
-              {rejectDocMut.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : "Confirm reject"}
+              {rejectDocMut.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : "Continue"}
             </Button>
           </SheetFooter>
         </SheetContent>

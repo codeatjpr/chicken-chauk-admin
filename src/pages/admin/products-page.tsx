@@ -2,10 +2,21 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ImagePlus, Pencil, Plus, Store } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useForm, type Resolver } from 'react-hook-form'
+import { useForm, type Resolver, Controller } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { ImageUploadField } from '@/components/forms/image-upload-field'
+import { RichTextEditor } from '@/components/forms/rich-text-editor'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,7 +26,6 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
@@ -33,13 +43,10 @@ import {
 } from '@/services/catalog-products.service'
 import type { MasterProduct } from '@/types/catalog-product'
 
-const UNITS = ['KG', 'GRAMS', 'PIECES', 'DOZEN'] as const
-
 const productFormSchema = z.object({
   categoryId: z.string().uuid('Pick a category'),
   name: z.string().min(2).max(150),
-  description: z.string().max(500).optional(),
-  unit: z.enum(UNITS),
+  description: z.string().max(20000).optional(),
 })
 
 type ProductFormValues = z.infer<typeof productFormSchema>
@@ -57,6 +64,10 @@ export function ProductsPage() {
   const [editing, setEditing] = useState<MasterProduct | null>(null)
   const [usageProduct, setUsageProduct] = useState<MasterProduct | null>(null)
   const [sheetImageFile, setSheetImageFile] = useState<File | null>(null)
+
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false)
+  const [pendingValues, setPendingValues] = useState<ProductFormValues | null>(null)
+  const [toggleTarget, setToggleTarget] = useState<MasterProduct | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300)
@@ -86,7 +97,6 @@ export function ProductsPage() {
       categoryId: '',
       name: '',
       description: '',
-      unit: 'KG',
     },
   })
 
@@ -97,7 +107,6 @@ export function ProductsPage() {
         categoryId: editing.categoryId,
         name: editing.name,
         description: editing.description ?? '',
-        unit: editing.unit as ProductFormValues['unit'],
       })
     } else {
       const firstActive = (categories ?? []).find((c) => c.isActive)?.id ?? (categories ?? [])[0]?.id ?? ''
@@ -105,7 +114,6 @@ export function ProductsPage() {
         categoryId: firstActive,
         name: '',
         description: '',
-        unit: 'KG',
       })
     }
   }, [sheetOpen, editing, form, categories])
@@ -120,8 +128,7 @@ export function ProductsPage() {
       updateMasterProduct(id, {
         categoryId: body.categoryId,
         name: body.name.trim(),
-        description: body.description?.trim() || undefined,
-        unit: body.unit,
+        description: body.description?.trim() || null,
       }),
     onError: (e) => toast.error(getApiErrorMessage(e, 'Update failed')),
   })
@@ -154,7 +161,6 @@ export function ProductsPage() {
           categoryId: values.categoryId,
           name: values.name.trim(),
           description: values.description?.trim() || undefined,
-          unit: values.unit,
         })
         if (sheetImageFile) await uploadMasterProductImage(p.id, sheetImageFile)
       }
@@ -168,7 +174,10 @@ export function ProductsPage() {
     }
   }
 
-  async function toggleActive(p: MasterProduct) {
+  async function confirmToggleProduct() {
+    if (!toggleTarget) return
+    const p = toggleTarget
+    setToggleTarget(null)
     try {
       if (p.isActive) await deactivateMasterProduct(p.id)
       else await activateMasterProduct(p.id)
@@ -272,7 +281,6 @@ export function ProductsPage() {
                       <th className="pb-2 font-medium">Image</th>
                       <th className="pb-2 font-medium">Name</th>
                       <th className="pb-2 font-medium">Category</th>
-                      <th className="pb-2 font-medium">Unit</th>
                       <th className="pb-2 font-medium">Status</th>
                       <th className="pb-2 font-medium text-right">Actions</th>
                     </tr>
@@ -293,7 +301,6 @@ export function ProductsPage() {
                         </td>
                         <td className="py-2 pr-4 font-medium">{p.name}</td>
                         <td className="text-muted-foreground py-2 pr-4">{p.category.name}</td>
-                        <td className="py-2 pr-4">{p.unit}</td>
                         <td className="py-2 pr-4">
                           <Badge variant={p.isActive ? 'default' : 'secondary'}>
                             {p.isActive ? 'Active' : 'Inactive'}
@@ -331,7 +338,7 @@ export function ProductsPage() {
                             >
                               <Pencil className="size-3.5" />
                             </Button>
-                            <Button type="button" variant="ghost" size="sm" onClick={() => void toggleActive(p)}>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setToggleTarget(p)}>
                               {p.isActive ? 'Deactivate' : 'Activate'}
                             </Button>
                           </div>
@@ -388,9 +395,14 @@ export function ProductsPage() {
             </SheetDescription>
           </SheetHeader>
           <form
-            className="flex flex-1 flex-col gap-4 px-4 pb-4"
-            onSubmit={form.handleSubmit(async (v) => onSubmitForm(v))}
+            className="flex flex-1 flex-col overflow-hidden"
+            onSubmit={form.handleSubmit((v) => {
+              setPendingValues(v)
+              setSaveConfirmOpen(true)
+            })}
           >
+            {/* Scrollable field area */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="p-cat">Category</Label>
               <select
@@ -420,12 +432,21 @@ export function ProductsPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="p-desc">Description</Label>
-              <textarea
-                id="p-desc"
-                className="border-input bg-background min-h-16 w-full rounded-lg border px-2.5 py-2 text-sm"
-                {...form.register('description')}
+              <Label>Description</Label>
+              <Controller
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <RichTextEditor
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    placeholder="Write a product description… supports bold, italic, lists."
+                  />
+                )}
               />
+              {form.formState.errors.description && (
+                <p className="text-destructive text-xs">{form.formState.errors.description.message}</p>
+              )}
             </div>
             <ImageUploadField
               label="Image (optional)"
@@ -434,21 +455,10 @@ export function ProductsPage() {
               currentImageUrl={editing?.imageUrl}
               hint="JPEG/PNG. Selected image previews before save. You can also use the row upload button."
             />
-            <div className="space-y-2">
-              <Label htmlFor="p-unit">Unit</Label>
-              <select
-                id="p-unit"
-                className="border-input bg-background h-8 w-full rounded-lg border px-2 text-sm"
-                {...form.register('unit')}
-              >
-                {UNITS.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <SheetFooter className="mt-auto flex-row gap-2 p-0">
+            </div>{/* end scrollable area */}
+
+            {/* Sticky footer — always visible */}
+            <div className="border-t px-4 py-3 flex gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -462,10 +472,60 @@ export function ProductsPage() {
               <Button type="submit" disabled={createMut.isPending || updateMut.isPending || form.formState.isSubmitting}>
                 {editing ? 'Save' : 'Create'}
               </Button>
-            </SheetFooter>
+            </div>
           </form>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={saveConfirmOpen} onOpenChange={setSaveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{editing ? 'Save product?' : 'Create product?'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingValues ? (
+                <>
+                  <strong>{pendingValues.name.trim()}</strong>
+                  {sheetImageFile ? ' · new image will upload after save.' : ''}
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingValues(null)}>Go back</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={createMut.isPending || updateMut.isPending}
+              onClick={() => {
+                if (!pendingValues) return
+                const v = pendingValues
+                setSaveConfirmOpen(false)
+                void onSubmitForm(v)
+                setPendingValues(null)
+              }}
+            >
+              {editing ? 'Confirm save' : 'Confirm create'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!toggleTarget} onOpenChange={(o) => !o && setToggleTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{toggleTarget?.isActive ? 'Deactivate product?' : 'Activate product?'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {toggleTarget?.isActive
+                ? `“${toggleTarget?.name}” will be hidden from the master catalog until activated again.`
+                : `“${toggleTarget?.name}” will be available for vendors to list again.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmToggleProduct()}>
+              {toggleTarget?.isActive ? 'Deactivate' : 'Activate'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Sheet open={!!usageProduct} onOpenChange={(o) => !o && setUsageProduct(null)}>
         <SheetContent className="flex flex-col sm:max-w-lg">

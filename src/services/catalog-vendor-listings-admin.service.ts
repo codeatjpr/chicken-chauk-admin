@@ -14,26 +14,21 @@ export type AdminVendorListingRow = {
   id: string
   vendorId: string
   productId: string
-  variantId: string
   price: number
   mrp: number | null
   stock: number
   isAvailable: boolean
   sortOrder: number
   imageUrl?: string | null
+  description: string | null
+  quantityValue: number | null
+  quantityUnit: string | null
+  pieces: string | null
+  servings: string | null
   updatedAt: string
-  variant: {
-    id: string
-    name: string
-    weight: number
-    unit: string
-    isActive: boolean
-    sortOrder: number
-  }
   product: {
     id: string
     name: string
-    unit: string
     imageUrl?: string | null
     category: { id: string; name: string }
   }
@@ -81,10 +76,15 @@ export async function getAdminVendorListing(id: string): Promise<AdminVendorList
 
 export async function createAdminVendorListing(body: {
   vendorId: string
-  variantId: string
+  productId: string
   price: number
   mrp?: number | null
   sortOrder?: number
+  quantityValue?: number | null
+  quantityUnit?: string | null
+  description?: string | null
+  pieces?: string | null
+  servings?: string | null
 }): Promise<AdminVendorListingRow> {
   const { data } = await axiosInstance.post<ApiSuccess<AdminVendorListingRow>>(
     '/catalog/admin/vendor-products',
@@ -101,6 +101,11 @@ export async function patchAdminVendorListing(
     sortOrder: number
     stock: number
     isAvailable: boolean
+    quantityValue: number | null
+    quantityUnit: string | null
+    description: string | null
+    pieces: string | null
+    servings: string | null
   }>,
 ): Promise<AdminVendorListingRow> {
   const { data } = await axiosInstance.patch<ApiSuccess<AdminVendorListingRow>>(

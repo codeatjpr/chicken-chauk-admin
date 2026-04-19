@@ -23,6 +23,16 @@ import { useForm, type Resolver } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { ImageUploadField } from '@/components/forms/image-upload-field'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -64,6 +74,11 @@ export function CategoriesPage() {
   const [editing, setEditing] = useState<CatalogCategory | null>(null)
   const [items, setItems] = useState<CatalogCategory[]>([])
   const [imageFile, setImageFile] = useState<File | null>(null)
+
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false)
+  const [pendingValues, setPendingValues] = useState<CategoryFormValues | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<CatalogCategory | null>(null)
+  const [toggleTarget, setToggleTarget] = useState<CatalogCategory | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['catalog-categories-all'],
@@ -172,7 +187,23 @@ export function CategoriesPage() {
     }
   }
 
-  async function onToggleActive(c: CatalogCategory) {
+  async function confirmDeleteCategory() {
+    if (!deleteTarget) return
+    const id = deleteTarget.id
+    setDeleteTarget(null)
+    try {
+      await deleteCategory(id)
+      void queryClient.invalidateQueries({ queryKey: ['catalog-categories-all'] })
+      toast.success('Category deleted')
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, 'Delete failed'))
+    }
+  }
+
+  async function confirmToggleCategory() {
+    if (!toggleTarget) return
+    const c = toggleTarget
+    setToggleTarget(null)
     try {
       if (c.isActive) await deactivateCategory(c.id)
       else await activateCategory(c.id)
@@ -180,17 +211,6 @@ export function CategoriesPage() {
       toast.success(c.isActive ? 'Deactivated' : 'Activated')
     } catch (e) {
       toast.error(getApiErrorMessage(e, 'Update failed'))
-    }
-  }
-
-  async function onDelete(c: CatalogCategory) {
-    if (!window.confirm(`Delete category “${c.name}”? This only works if no products use it.`)) return
-    try {
-      await deleteCategory(c.id)
-      void queryClient.invalidateQueries({ queryKey: ['catalog-categories-all'] })
-      toast.success('Category deleted')
-    } catch (e) {
-      toast.error(getApiErrorMessage(e, 'Delete failed'))
     }
   }
 
@@ -234,7 +254,13 @@ export function CategoriesPage() {
                     </thead>
                     <tbody>
                       {items.map((c) => (
-                        <SortableRow key={c.id} category={c} onEdit={openEdit} onToggle={onToggleActive} onDelete={onDelete} />
+                        <SortableRow
+                          key={c.id}
+                          category={c}
+                          onEdit={openEdit}
+                          onToggle={(cat) => setToggleTarget(cat)}
+                          onDelete={(cat) => setDeleteTarget(cat)}
+                        />
                       ))}
                     </tbody>
                   </table>
@@ -263,7 +289,10 @@ export function CategoriesPage() {
           </SheetHeader>
           <form
             className="flex flex-1 flex-col gap-4 px-4 pb-4"
-            onSubmit={form.handleSubmit(async (values) => onSubmitForm(values))}
+            onSubmit={form.handleSubmit((values) => {
+              setPendingValues(values)
+              setSaveConfirmOpen(true)
+            })}
           >
             <div className="space-y-2">
               <Label htmlFor="cat-name">Name</Label>
@@ -309,6 +338,79 @@ export function CategoriesPage() {
           </form>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={saveConfirmOpen} onOpenChange={setSaveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{editing ? 'Save category?' : 'Create category?'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingValues ? (
+                <>
+                  <strong>{pendingValues.name.trim()}</strong>
+                  {' · '}
+                  sort order {pendingValues.sortOrder}
+                  {imageFile ? ' · new image will be uploaded after save.' : ''}
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingValues(null)}>Go back</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={createMut.isPending || updateMut.isPending}
+              onClick={() => {
+                if (!pendingValues) return
+                const v = pendingValues
+                setSaveConfirmOpen(false)
+                void onSubmitForm(v)
+                setPendingValues(null)
+              }}
+            >
+              {editing ? 'Confirm save' : 'Confirm create'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete category?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{deleteTarget?.name}</strong>. This only succeeds if no products use
+              this category.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void confirmDeleteCategory()}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!toggleTarget} onOpenChange={(o) => !o && setToggleTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{toggleTarget?.isActive ? 'Deactivate category?' : 'Activate category?'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {toggleTarget?.isActive
+                ? `“${toggleTarget?.name}” will be hidden from new listings until activated again.`
+                : `“${toggleTarget?.name}” will be available again for catalog use.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmToggleCategory()}>
+              {toggleTarget?.isActive ? 'Deactivate' : 'Activate'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

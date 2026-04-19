@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -72,6 +82,9 @@ export function PayoutsPage() {
   const [statusPayout, setStatusPayout] = useState<PayoutAdminRow | null>(null)
   const [newStatus, setNewStatus] = useState('COMPLETED')
   const [statusRef, setStatusRef] = useState('')
+
+  const [createConfirmOpen, setCreateConfirmOpen] = useState(false)
+  const [statusSaveConfirmOpen, setStatusSaveConfirmOpen] = useState(false)
 
   const previewMut = useMutation({
     mutationFn: () =>
@@ -250,7 +263,7 @@ export function PayoutsPage() {
                     placeholder="Bank / UTR"
                   />
                 </div>
-                <Button type="button" disabled={createMut.isPending || !canCreate} onClick={() => createMut.mutate()}>
+                <Button type="button" disabled={createMut.isPending || !canCreate} onClick={() => setCreateConfirmOpen(true)}>
                   {createMut.isPending ? 'Creating…' : 'Create payout'}
                 </Button>
               </div>
@@ -492,6 +505,64 @@ export function PayoutsPage() {
         </CardContent>
       </Card>
 
+      <AlertDialog open={createConfirmOpen} onOpenChange={setCreateConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Create payout record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {preview ? (
+                <>
+                  Vendor <strong>{preview.vendor.name}</strong> · amount{' '}
+                  <strong>{money.format(preview.payoutAmount)}</strong> for the selected period. This records a payout in
+                  the system.
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={createMut.isPending || !canCreate}
+              onClick={() => {
+                setCreateConfirmOpen(false)
+                createMut.mutate()
+              }}
+            >
+              Create payout
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={statusSaveConfirmOpen} onOpenChange={setStatusSaveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Update payout status?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Set status to <strong>{newStatus}</strong>
+              {statusPayout ? (
+                <>
+                  {' '}
+                  for <strong>{statusPayout.vendor.name}</strong> ({money.format(statusPayout.amount)}).
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={statusMut.isPending || !statusPayout}
+              onClick={() => {
+                setStatusSaveConfirmOpen(false)
+                statusMut.mutate()
+              }}
+            >
+              Confirm update
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Sheet open={!!statusPayout} onOpenChange={(o) => !o && setStatusPayout(null)}>
         <SheetContent className="flex w-full flex-col overflow-y-auto sm:max-w-md">
           <SheetHeader>
@@ -520,7 +591,7 @@ export function PayoutsPage() {
             <Button
               type="button"
               disabled={statusMut.isPending || !statusPayout}
-              onClick={() => statusMut.mutate()}
+              onClick={() => setStatusSaveConfirmOpen(true)}
             >
               {statusMut.isPending ? 'Saving…' : 'Save'}
             </Button>

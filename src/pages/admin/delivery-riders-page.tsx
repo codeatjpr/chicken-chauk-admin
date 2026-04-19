@@ -1,13 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getApiErrorMessage } from '@/lib/api-error'
+import { cn } from '@/lib/utils'
 import {
   assignRiderToOrder,
   getRiderDeliveriesAdmin,
@@ -33,6 +45,7 @@ export function DeliveryRidersPage() {
   const delLimit = 15
   const [assignOrderId, setAssignOrderId] = useState('')
   const [assignRiderId, setAssignRiderId] = useState('')
+  const [assignConfirmOpen, setAssignConfirmOpen] = useState(false)
 
   const ridersQ = useQuery({
     queryKey: ['admin-riders', page, onlineFilter, verifiedFilter],
@@ -89,11 +102,16 @@ export function DeliveryRidersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">Delivery & riders</h1>
-        <p className="text-muted-foreground text-sm">
-          List riders, inspect history and stats, assign a rider to an order (admin).
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">Delivery & riders</h1>
+          <p className="text-muted-foreground text-sm">
+            List riders, inspect history and stats, assign a rider to an order (admin).
+          </p>
+        </div>
+        <Link to="/admin/delivery/onboard" className={cn(buttonVariants({ size: 'sm' }), 'shrink-0')}>
+          Onboard rider
+        </Link>
       </div>
 
       <Card>
@@ -125,12 +143,37 @@ export function DeliveryRidersPage() {
           <Button
             type="button"
             disabled={assignMut.isPending || !assignOrderId.trim() || !assignRiderId.trim()}
-            onClick={() => assignMut.mutate()}
+            onClick={() => setAssignConfirmOpen(true)}
           >
             Assign
           </Button>
         </CardContent>
       </Card>
+
+      <AlertDialog open={assignConfirmOpen} onOpenChange={setAssignConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Assign rider to order?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Order <span className="font-mono text-xs">{assignOrderId.trim()}</span> → rider{' '}
+              <span className="font-mono text-xs">{assignRiderId.trim()}</span>. This updates delivery routing for that
+              order.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={assignMut.isPending}
+              onClick={() => {
+                setAssignConfirmOpen(false)
+                assignMut.mutate()
+              }}
+            >
+              Confirm assign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card>
         <CardHeader className="pb-3">

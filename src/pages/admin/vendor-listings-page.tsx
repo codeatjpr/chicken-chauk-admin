@@ -1,7 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Eye, ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react'
+import { CheckCircle2, Eye, ImagePlus, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +26,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { RichTextEditor } from '@/components/forms/rich-text-editor'
 import { getApiErrorMessage } from '@/lib/api-error'
 import {
   createAdminVendorListing,
@@ -27,21 +38,25 @@ import {
   type AdminVendorListingRow,
 } from '@/services/catalog-vendor-listings-admin.service'
 import { listCategoriesAll } from '@/services/catalog-admin.service'
-import { listMasterProducts, listProductVariants } from '@/services/catalog-products.service'
+import { listMasterProducts } from '@/services/catalog-products.service'
 import { listAllVendors } from '@/services/vendors-admin.service'
-import type { MasterProduct, ProductVariantRow } from '@/types/catalog-product'
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function variantOptionLabel(v: Pick<ProductVariantRow, 'name' | 'weight' | 'unit'>) {
-  return `${v.name} · ${v.weight} ${v.unit}`
-}
+import type { MasterProduct } from '@/types/catalog-product'
 
 const money = new Intl.NumberFormat('en-IN', {
   style: 'currency',
   currency: 'INR',
   maximumFractionDigits: 0,
 })
+
+const QUANTITY_UNITS = [
+  { value: 'g',   label: 'g — grams' },
+  { value: 'kg',  label: 'kg — kilograms' },
+  { value: 'ml',  label: 'ml — millilitres' },
+  { value: 'l',   label: 'l — litres' },
+  { value: 'pcs', label: 'pcs — pieces' },
+  { value: 'doz', label: 'doz — dozen' },
+  { value: 'nos', label: 'nos — numbers' },
+]
 
 export function VendorListingsPage() {
   const queryClient = useQueryClient()
@@ -67,15 +82,36 @@ export function VendorListingsPage() {
   const [editRow, setEditRow] = useState<AdminVendorListingRow | null>(null)
   const [createVendorId, setCreateVendorId] = useState('')
   const [createProductId, setCreateProductId] = useState('')
-  const [createVariantId, setCreateVariantId] = useState('')
+  const [selectedVendorName, setSelectedVendorName] = useState('')
+  const [selectedProductName, setSelectedProductName] = useState('')
   const [createPrice, setCreatePrice] = useState('')
   const [createMrp, setCreateMrp] = useState('')
   const [createSort, setCreateSort] = useState('0')
+  const [createQtyValue, setCreateQtyValue] = useState('')
+  const [createQtyUnit, setCreateQtyUnit] = useState('')
+  const [createDescription, setCreateDescription] = useState('')
+  const [createPieces, setCreatePieces] = useState('')
+  const [createServings, setCreateServings] = useState('')
   const [editPrice, setEditPrice] = useState('')
   const [editMrp, setEditMrp] = useState('')
   const [editSort, setEditSort] = useState('')
   const [editStock, setEditStock] = useState('')
   const [editAvailable, setEditAvailable] = useState(false)
+  const [editQtyValue, setEditQtyValue] = useState('')
+  const [editQtyUnit, setEditQtyUnit] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editPieces, setEditPieces] = useState('')
+  const [editServings, setEditServings] = useState('')
+
+  // Confirmation dialog state
+  const [createConfirmOpen, setCreateConfirmOpen] = useState(false)
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false)
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{
+    id: string
+    productName: string
+    vendorName: string
+    fromDetailSheet?: boolean
+  } | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedShopName(shopNameFilter.trim()), 400)
@@ -115,24 +151,6 @@ export function VendorListingsPage() {
         ...(stockFilter !== 'any' && { stock: stockFilter }),
       }),
   })
-
-  const productIdTrimmed = createProductId.trim()
-  const variantsQ = useQuery({
-    queryKey: ['product-variants', productIdTrimmed],
-    queryFn: () => listProductVariants(productIdTrimmed),
-    enabled: createOpen && UUID_RE.test(productIdTrimmed),
-    staleTime: 60_000,
-  })
-
-  useEffect(() => {
-    setCreateVariantId('')
-  }, [createProductId])
-
-  useEffect(() => {
-    const rows = variantsQ.data
-    if (!rows?.length) return
-    if (rows.length === 1) setCreateVariantId(rows[0].id)
-  }, [variantsQ.data])
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedVendorSearch(createVendorSearch.trim()), 300)
@@ -176,10 +194,15 @@ export function VendorListingsPage() {
     mutationFn: () =>
       createAdminVendorListing({
         vendorId: createVendorId.trim(),
-        variantId: createVariantId.trim(),
+        productId: createProductId.trim(),
         price: Number(createPrice),
         mrp: createMrp.trim() ? Number(createMrp) : null,
         sortOrder: Number(createSort) || 0,
+        quantityValue: createQtyValue.trim() ? Number(createQtyValue) : null,
+        quantityUnit: createQtyUnit.trim() || null,
+        description: createDescription.trim() || null,
+        pieces: createPieces.trim() || null,
+        servings: createServings.trim() || null,
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin-vendor-listings'] })
@@ -198,6 +221,11 @@ export function VendorListingsPage() {
         sortOrder: Number(editSort) || 0,
         stock: Number(editStock),
         isAvailable: editAvailable,
+        quantityValue: editQtyValue.trim() ? Number(editQtyValue) : null,
+        quantityUnit: editQtyUnit.trim() || null,
+        description: editDescription.trim() || null,
+        pieces: editPieces.trim() || null,
+        servings: editServings.trim() || null,
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin-vendor-listings'] })
@@ -221,12 +249,18 @@ export function VendorListingsPage() {
   function resetCreate() {
     setCreateVendorId('')
     setCreateVendorSearch('')
+    setSelectedVendorName('')
     setCreateProductId('')
     setCreateProductSearch('')
-    setCreateVariantId('')
+    setSelectedProductName('')
     setCreatePrice('')
     setCreateMrp('')
     setCreateSort('0')
+    setCreateQtyValue('')
+    setCreateQtyUnit('')
+    setCreateDescription('')
+    setCreatePieces('')
+    setCreateServings('')
   }
 
   function openEditFromDetail(row: AdminVendorListingRow & { vendor?: { isActive?: boolean } }) {
@@ -241,6 +275,11 @@ export function VendorListingsPage() {
     setEditSort(String(row.sortOrder))
     setEditStock(String(row.stock))
     setEditAvailable(row.isAvailable)
+    setEditQtyValue(row.quantityValue != null ? String(row.quantityValue) : '')
+    setEditQtyUnit(row.quantityUnit ?? '')
+    setEditDescription(row.description ?? '')
+    setEditPieces(row.pieces ?? '')
+    setEditServings(row.servings ?? '')
   }
 
   async function onPickListingImage(row: AdminVendorListingRow, file: File | null) {
@@ -296,7 +335,7 @@ export function VendorListingsPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-3">
-            <div className="min-w-[12rem] flex-1 space-y-1">
+            <div className="min-w-48 flex-1 space-y-1">
               <Label htmlFor="vl-shop">Shop name contains</Label>
               <Input
                 id="vl-shop"
@@ -308,7 +347,7 @@ export function VendorListingsPage() {
                 }}
               />
             </div>
-            <div className="min-w-[10rem] flex-1 space-y-1">
+            <div className="min-w-40 flex-1 space-y-1">
               <Label htmlFor="vl-city">City / location contains</Label>
               <Input
                 id="vl-city"
@@ -320,11 +359,11 @@ export function VendorListingsPage() {
                 }}
               />
             </div>
-            <div className="min-w-[10rem] flex-1 space-y-1">
-              <Label htmlFor="vl-product">Product or variant name</Label>
+            <div className="min-w-40 flex-1 space-y-1">
+              <Label htmlFor="vl-product">Product name</Label>
               <Input
                 id="vl-product"
-                placeholder="Matches master product or variant label"
+                placeholder="Matches master product name"
                 value={listProductSearch}
                 onChange={(e) => {
                   setListProductSearch(e.target.value)
@@ -334,7 +373,7 @@ export function VendorListingsPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
-            <div className="min-w-[10rem] flex-1 space-y-1">
+            <div className="min-w-40 flex-1 space-y-1">
               <Label htmlFor="vl-cat">Category</Label>
               <select
                 id="vl-cat"
@@ -409,7 +448,7 @@ export function VendorListingsPage() {
                     <tr className="border-border border-b">
                       <th className="pb-2 font-medium">Img</th>
                       <th className="pb-2 font-medium">Vendor</th>
-                      <th className="pb-2 font-medium">Product / variant</th>
+                      <th className="pb-2 font-medium">Product</th>
                       <th className="pb-2 font-medium">Price</th>
                       <th className="pb-2 font-medium">Stock</th>
                       <th className="pb-2 font-medium">Avail</th>
@@ -435,9 +474,6 @@ export function VendorListingsPage() {
                           <td className="py-2 pr-4">
                             {row.product.name}
                             <p className="text-muted-foreground text-xs">{row.product.category.name}</p>
-                            <p className="text-muted-foreground text-xs">
-                              {variantOptionLabel(row.variant)}
-                            </p>
                           </td>
                           <td className="py-2 pr-4">
                             {money.format(row.price)}
@@ -482,9 +518,11 @@ export function VendorListingsPage() {
                                 variant="ghost"
                                 size="icon-sm"
                                 className="text-destructive"
-                                onClick={() => {
-                                  if (window.confirm('Remove this vendor listing?')) delMut.mutate(row.id)
-                                }}
+                                onClick={() => setDeleteConfirmTarget({
+                                  id: row.id,
+                                  productName: row.product.name,
+                                  vendorName: row.vendor.name,
+                                })}
                               >
                                 <Trash2 className="size-3.5" />
                               </Button>
@@ -534,7 +572,7 @@ export function VendorListingsPage() {
           if (!o) setDetailListingId(null)
         }}
       >
-        <SheetContent className="flex max-h-[100dvh] flex-col sm:max-w-lg">
+        <SheetContent className="flex max-h-dvh flex-col sm:max-w-lg">
           <SheetHeader>
             <SheetTitle>Vendor product (read)</SheetTitle>
             <SheetDescription>Listing id and relationships. Stock and availability are vendor-controlled.</SheetDescription>
@@ -561,12 +599,11 @@ export function VendorListingsPage() {
                     </Badge>
                   </div>
                   <div>
-                    <p className="text-muted-foreground text-xs">Product & variant</p>
+                    <p className="text-muted-foreground text-xs">Product</p>
                     <p className="font-medium">{detailQ.data.product.name}</p>
                     <p className="text-muted-foreground text-xs">{detailQ.data.product.category.name}</p>
-                    <p className="text-muted-foreground text-xs">{variantOptionLabel(detailQ.data.variant)}</p>
                     <p className="text-muted-foreground mt-1 font-mono text-[11px]">
-                      product {detailQ.data.productId} · variant {detailQ.data.variantId}
+                      product {detailQ.data.productId}
                     </p>
                   </div>
                 </div>
@@ -643,14 +680,12 @@ export function VendorListingsPage() {
                     type="button"
                     variant="destructive"
                     size="sm"
-                    onClick={() => {
-                      if (!window.confirm('Delete this vendor product?')) return
-                      delMut.mutate(detailQ.data!.id, {
-                        onSuccess: () => {
-                          setDetailListingId(null)
-                        },
-                      })
-                    }}
+                    onClick={() => setDeleteConfirmTarget({
+                      id: detailQ.data!.id,
+                      productName: detailQ.data!.product.name,
+                      vendorName: detailQ.data!.vendor.name,
+                      fromDetailSheet: true,
+                    })}
                   >
                     Delete
                   </Button>
@@ -670,93 +705,112 @@ export function VendorListingsPage() {
           if (!o) resetCreate()
         }}
       >
-        <SheetContent className="flex max-h-[100dvh] flex-col sm:max-w-md">
+        <SheetContent className="flex max-h-dvh flex-col sm:max-w-md">
           <SheetHeader>
             <SheetTitle>New vendor listing</SheetTitle>
             <SheetDescription>
-              Search vendor and product, pick variant, set admin price. Stock starts at 0 until the vendor updates it.
+              Search vendor and product, set admin price. Stock starts at 0 until the vendor updates it.
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-4">
             <div className="space-y-1">
               <Label>Find vendor</Label>
-              <Input
-                placeholder="Type name, city, or phone…"
-                value={createVendorSearch}
-                onChange={(e) => setCreateVendorSearch(e.target.value)}
-              />
-              {vendorPickQ.data && vendorPickQ.data.items.length > 0 && (
-                <ul className="border-border max-h-36 overflow-y-auto rounded-lg border text-sm">
-                  {vendorPickQ.data.items.map((v) => (
-                    <li key={v.id}>
-                      <button
-                        type="button"
-                        className="hover:bg-muted w-full px-2 py-1.5 text-left"
-                        onClick={() => {
-                          setCreateVendorId(v.id)
-                          setCreateVendorSearch(`${v.name} · ${v.city}`)
-                        }}
-                      >
-                        <span className="font-medium">{v.name}</span>
-                        <span className="text-muted-foreground text-xs"> · {v.city}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+              {createVendorId ? (
+                <div className="bg-muted flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <CheckCircle2 className="size-3.5 text-emerald-500" />
+                    {selectedVendorName}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setCreateVendorId('')
+                      setCreateVendorSearch('')
+                      setSelectedVendorName('')
+                    }}
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <Input
+                    placeholder="Type name, city, or phone…"
+                    value={createVendorSearch}
+                    onChange={(e) => setCreateVendorSearch(e.target.value)}
+                  />
+                  {vendorPickQ.data && vendorPickQ.data.items.length > 0 && (
+                    <ul className="border-border max-h-36 overflow-y-auto rounded-lg border text-sm">
+                      {vendorPickQ.data.items.map((v) => (
+                        <li key={v.id}>
+                          <button
+                            type="button"
+                            className="hover:bg-muted w-full px-2 py-1.5 text-left"
+                            onClick={() => {
+                              setCreateVendorId(v.id)
+                              setSelectedVendorName(`${v.name} · ${v.city}`)
+                              setCreateVendorSearch('')
+                            }}
+                          >
+                            <span className="font-medium">{v.name}</span>
+                            <span className="text-muted-foreground text-xs"> · {v.city}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
               )}
-              <Label className="text-muted-foreground text-xs">Vendor id (editable)</Label>
-              <Input className="font-mono text-xs" value={createVendorId} onChange={(e) => setCreateVendorId(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>Find product</Label>
-              <Input
-                placeholder="Type product name…"
-                value={createProductSearch}
-                onChange={(e) => setCreateProductSearch(e.target.value)}
-              />
-              {productPickQ.data && productPickQ.data.items.length > 0 && (
-                <ul className="border-border max-h-36 overflow-y-auto rounded-lg border text-sm">
-                  {productPickQ.data.items.map((p: MasterProduct) => (
-                    <li key={p.id}>
-                      <button
-                        type="button"
-                        className="hover:bg-muted w-full px-2 py-1.5 text-left"
-                        onClick={() => {
-                          setCreateProductId(p.id)
-                          setCreateProductSearch(`${p.name} (${p.category.name})`)
-                        }}
-                      >
-                        <span className="font-medium">{p.name}</span>
-                        <span className="text-muted-foreground text-xs"> · {p.category.name}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <Label className="text-muted-foreground text-xs">Product id (editable)</Label>
-              <Input className="font-mono text-xs" value={createProductId} onChange={(e) => setCreateProductId(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Variant</Label>
-              {!UUID_RE.test(productIdTrimmed) ? (
-                <p className="text-muted-foreground text-xs">Enter a valid product UUID to load variants.</p>
-              ) : variantsQ.isLoading ? (
-                <Skeleton className="h-8 w-full" />
-              ) : variantsQ.isError ? (
-                <p className="text-destructive text-xs">Could not load variants for this product.</p>
+              {createProductId ? (
+                <div className="bg-muted flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <CheckCircle2 className="size-3.5 text-emerald-500" />
+                    {selectedProductName}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setCreateProductId('')
+                      setCreateProductSearch('')
+                      setSelectedProductName('')
+                    }}
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
               ) : (
-                <select
-                  className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
-                  value={createVariantId}
-                  onChange={(e) => setCreateVariantId(e.target.value)}
-                >
-                  <option value="">Select variant…</option>
-                  {(variantsQ.data ?? []).map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {variantOptionLabel(v)}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <Input
+                    placeholder="Type product name…"
+                    value={createProductSearch}
+                    onChange={(e) => setCreateProductSearch(e.target.value)}
+                  />
+                  {productPickQ.data && productPickQ.data.items.length > 0 && (
+                    <ul className="border-border max-h-36 overflow-y-auto rounded-lg border text-sm">
+                      {productPickQ.data.items.map((p: MasterProduct) => (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            className="hover:bg-muted w-full px-2 py-1.5 text-left"
+                            onClick={() => {
+                              setCreateProductId(p.id)
+                              setSelectedProductName(`${p.name} · ${p.category.name}`)
+                              setCreateProductSearch('')
+                            }}
+                          >
+                            <span className="font-medium">{p.name}</span>
+                            <span className="text-muted-foreground text-xs"> · {p.category.name}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
               )}
             </div>
             <div className="space-y-1">
@@ -771,6 +825,58 @@ export function VendorListingsPage() {
               <Label>Sort order</Label>
               <Input type="number" min={0} value={createSort} onChange={(e) => setCreateSort(e.target.value)} />
             </div>
+            <div className="flex gap-2">
+              <div className="flex-1 space-y-1">
+                <Label>Quantity amount</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="any"
+                  placeholder={createQtyUnit ? `e.g. 200 ${createQtyUnit}` : 'e.g. 200'}
+                  value={createQtyValue}
+                  onChange={(e) => setCreateQtyValue(e.target.value)}
+                />
+              </div>
+              <div className="flex-1 space-y-1">
+                <Label>Unit</Label>
+                <select
+                  className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
+                  value={createQtyUnit}
+                  onChange={(e) => setCreateQtyUnit(e.target.value)}
+                >
+                  <option value="">— none —</option>
+                  {QUANTITY_UNITS.map((u) => (
+                    <option key={u.value} value={u.value}>{u.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Description (optional)</Label>
+              <RichTextEditor
+                value={createDescription}
+                onChange={setCreateDescription}
+                placeholder="Vendor-specific description, e.g. 'Our farm-fresh cut, delivered same day'"
+              />
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1 space-y-1">
+                <Label>Pieces (optional)</Label>
+                <Input
+                  placeholder="e.g. 8-10 pieces"
+                  value={createPieces}
+                  onChange={(e) => setCreatePieces(e.target.value)}
+                />
+              </div>
+              <div className="flex-1 space-y-1">
+                <Label>Servings (optional)</Label>
+                <Input
+                  placeholder="e.g. Serves 2-3"
+                  value={createServings}
+                  onChange={(e) => setCreateServings(e.target.value)}
+                />
+              </div>
+            </div>
             <SheetFooter className="flex-row gap-2 p-0">
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
                 Cancel
@@ -781,31 +887,62 @@ export function VendorListingsPage() {
                   createMut.isPending ||
                   !createVendorId.trim() ||
                   !createProductId.trim() ||
-                  !createVariantId.trim() ||
                   !createPrice ||
                   Number(createPrice) <= 0
                 }
-                onClick={() => createMut.mutate()}
+                onClick={() => setCreateConfirmOpen(true)}
               >
-                Create
+                Review & create
               </Button>
             </SheetFooter>
           </div>
         </SheetContent>
       </Sheet>
 
+      {/* ── Create confirmation dialog ───────────────────────────────────── */}
+      <AlertDialog open={createConfirmOpen} onOpenChange={setCreateConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm new listing</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>Please review the listing before creating:</p>
+                <ul className="border-border space-y-1 rounded-lg border bg-muted/40 px-4 py-3 text-foreground">
+                  <li><span className="text-muted-foreground">Vendor:</span> {selectedVendorName}</li>
+                  <li><span className="text-muted-foreground">Product:</span> {selectedProductName}</li>
+                  <li><span className="text-muted-foreground">Price:</span> ₹{createPrice}</li>
+                  {createMrp && <li><span className="text-muted-foreground">MRP:</span> ₹{createMrp}</li>}
+                  {createQtyValue && <li><span className="text-muted-foreground">Quantity:</span> {createQtyValue} {createQtyUnit}</li>}
+                  {createPieces && <li><span className="text-muted-foreground">Pieces:</span> {createPieces}</li>}
+                  {createServings && <li><span className="text-muted-foreground">Servings:</span> {createServings}</li>}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={createMut.isPending}
+              onClick={() => { setCreateConfirmOpen(false); createMut.mutate() }}
+            >
+              Confirm & create
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Sheet open={!!editRow} onOpenChange={(o) => !o && setEditRow(null)}>
-        <SheetContent className="sm:max-w-md">
+        <SheetContent className="flex max-h-dvh flex-col sm:max-w-md">
           <SheetHeader>
             <SheetTitle>Update vendor product</SheetTitle>
             <SheetDescription className="font-mono text-xs">{editRow?.id}</SheetDescription>
             {editRow && (
               <p className="text-muted-foreground pt-1 text-xs">
-                {editRow.vendor.name} · {editRow.product.name} · {variantOptionLabel(editRow.variant)}
+                {editRow.vendor.name} · {editRow.product.name}
               </p>
             )}
           </SheetHeader>
-          <div className="space-y-3 px-4 pb-4">
+          <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-4">
             <div className="space-y-1">
               <Label>Price</Label>
               <Input type="number" min={0} step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
@@ -837,7 +974,44 @@ export function VendorListingsPage() {
             <p className="text-muted-foreground text-xs">
               Availability can only be on if price is greater than zero (same rule as vendor app).
             </p>
-            <SheetFooter className="flex-row gap-2 p-0">
+            <div className="flex gap-2">
+              <div className="flex-1 space-y-1">
+                <Label>Quantity amount</Label>
+                <Input type="number" min={0} step="any" placeholder={editQtyUnit ? `e.g. 200 ${editQtyUnit}` : 'e.g. 200'} value={editQtyValue} onChange={(e) => setEditQtyValue(e.target.value)} />
+              </div>
+              <div className="flex-1 space-y-1">
+                <Label>Quantity unit</Label>
+                <select
+                  className="border-input bg-background h-9 w-full rounded-lg border px-2 text-sm"
+                  value={editQtyUnit}
+                  onChange={(e) => setEditQtyUnit(e.target.value)}
+                >
+                  <option value="">— none —</option>
+                  {QUANTITY_UNITS.map((u) => (
+                    <option key={u.value} value={u.value}>{u.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Description (optional)</Label>
+              <RichTextEditor
+                value={editDescription}
+                onChange={setEditDescription}
+                placeholder="Vendor-specific description, e.g. 'Our farm-fresh cut, delivered same day'"
+              />
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1 space-y-1">
+                <Label>Pieces (optional)</Label>
+                <Input placeholder="e.g. 8-10 pieces" value={editPieces} onChange={(e) => setEditPieces(e.target.value)} />
+              </div>
+              <div className="flex-1 space-y-1">
+                <Label>Servings (optional)</Label>
+                <Input placeholder="e.g. Serves 2-3" value={editServings} onChange={(e) => setEditServings(e.target.value)} />
+              </div>
+            </div>
+            <SheetFooter className="flex-row gap-2 p-0 pt-2">
               <Button type="button" variant="outline" onClick={() => setEditRow(null)}>
                 Cancel
               </Button>
@@ -851,14 +1025,83 @@ export function VendorListingsPage() {
                   Number(editStock) < 0 ||
                   !Number.isFinite(Number(editStock))
                 }
-                onClick={() => patchMut.mutate()}
+                onClick={() => setEditConfirmOpen(true)}
               >
-                Save
+                Review & save
               </Button>
             </SheetFooter>
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* ── Edit confirmation dialog ─────────────────────────────────────── */}
+      <AlertDialog open={editConfirmOpen} onOpenChange={setEditConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm listing update</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>Save these changes for <strong>{editRow?.product.name}</strong> at <strong>{editRow?.vendor.name}</strong>?</p>
+                <ul className="border-border space-y-1 rounded-lg border bg-muted/40 px-4 py-3 text-foreground">
+                  <li><span className="text-muted-foreground">Price:</span> ₹{editPrice}</li>
+                  {editMrp && <li><span className="text-muted-foreground">MRP:</span> ₹{editMrp}</li>}
+                  <li><span className="text-muted-foreground">Stock:</span> {editStock}</li>
+                  <li><span className="text-muted-foreground">Available:</span> {editAvailable ? 'Yes' : 'No'}</li>
+                  {editQtyValue && <li><span className="text-muted-foreground">Quantity:</span> {editQtyValue} {editQtyUnit}</li>}
+                  {editPieces && <li><span className="text-muted-foreground">Pieces:</span> {editPieces}</li>}
+                  {editServings && <li><span className="text-muted-foreground">Servings:</span> {editServings}</li>}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={patchMut.isPending}
+              onClick={() => { setEditConfirmOpen(false); patchMut.mutate() }}
+            >
+              Confirm & save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Delete confirmation dialog ───────────────────────────────────── */}
+      <AlertDialog
+        open={!!deleteConfirmTarget}
+        onOpenChange={(o) => { if (!o) setDeleteConfirmTarget(null) }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete listing?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the listing for{' '}
+              <strong>{deleteConfirmTarget?.productName}</strong> at{' '}
+              <strong>{deleteConfirmTarget?.vendorName}</strong>. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={delMut.isPending}
+              onClick={() => {
+                if (!deleteConfirmTarget) return
+                const { id, fromDetailSheet } = deleteConfirmTarget
+                setDeleteConfirmTarget(null)
+                delMut.mutate(id, {
+                  onSuccess: () => {
+                    if (fromDetailSheet) setDetailListingId(null)
+                  },
+                })
+              }}
+            >
+              Delete listing
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
+

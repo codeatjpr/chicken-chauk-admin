@@ -106,3 +106,23 @@ export async function assignRiderToOrder(orderId: string, riderId: string): Prom
   const { data } = await axiosInstance.post<ApiSuccess<null>>('/delivery/assign', { orderId, riderId })
   if (!data.success) throw new Error(data.message ?? 'Assign failed')
 }
+
+export type AdminOnboardRiderBody = {
+  name: string
+  phone: string
+  password: string
+  vehicleType: 'BIKE' | 'BICYCLE' | 'SCOOTER'
+  vehicleNumber?: string
+  licenseNumber?: string
+  markVerified?: boolean
+}
+
+export type AdminOnboardRiderResult = RiderAdminRow
+
+export async function onboardRiderAdmin(body: AdminOnboardRiderBody): Promise<AdminOnboardRiderResult> {
+  const { data } = await axiosInstance.post<ApiSuccess<AdminOnboardRiderResult>>(
+    '/delivery/admin/riders/onboard',
+    body,
+  )
+  return assertData(data, 'Onboard failed')
+}

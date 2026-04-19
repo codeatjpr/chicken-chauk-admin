@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -68,6 +78,9 @@ export function CouponsPage() {
   const [sheetMode, setSheetMode] = useState<SheetMode>(null)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
+
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false)
+  const [deactivateTarget, setDeactivateTarget] = useState<CouponRow | null>(null)
 
   const listQ = useQuery({
     queryKey: ['admin-coupons', page, activeFilter],
@@ -277,7 +290,7 @@ export function CouponsPage() {
                                 size="sm"
                                 className="text-destructive"
                                 disabled={deactivateMut.isPending}
-                                onClick={() => deactivateMut.mutate(row.id)}
+                                onClick={() => setDeactivateTarget(row)}
                               >
                                 Deactivate
                               </Button>
@@ -485,7 +498,7 @@ export function CouponsPage() {
                   !form.discountValue ||
                   (sheetMode === 'create' && form.code.trim().length < 3)
                 }
-                onClick={() => saveMut.mutate()}
+                onClick={() => setSaveConfirmOpen(true)}
               >
                 {saveMut.isPending ? 'Saving…' : 'Save'}
               </Button>
@@ -493,6 +506,62 @@ export function CouponsPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={saveConfirmOpen} onOpenChange={setSaveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{sheetMode === 'create' ? 'Create coupon?' : 'Save coupon?'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {sheetMode === 'create' ? (
+                <>
+                  Code <strong>{form.code.trim().toUpperCase()}</strong> · {form.title.trim()}
+                </>
+              ) : (
+                <>Updates <strong>{form.title.trim()}</strong> ({form.code.trim().toUpperCase()}).</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={saveMut.isPending}
+              onClick={() => {
+                setSaveConfirmOpen(false)
+                saveMut.mutate()
+              }}
+            >
+              {sheetMode === 'create' ? 'Confirm create' : 'Confirm save'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deactivateTarget} onOpenChange={(o) => !o && setDeactivateTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate coupon?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{deactivateTarget?.code}</strong> ({deactivateTarget?.title}) will stop working for new
+              checkouts.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deactivateMut.isPending}
+              onClick={() => {
+                if (!deactivateTarget) return
+                const id = deactivateTarget.id
+                setDeactivateTarget(null)
+                deactivateMut.mutate(id)
+              }}
+            >
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

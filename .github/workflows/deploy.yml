@@ -1,0 +1,52 @@
+# Runs only after the "CI" workflow completes successfully on a push to main.
+# Does not run for pull requests (those only run CI).
+
+name: Deploy to EC2
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: SSH deploy
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            echo "Starting deployment..."
+            cd /home/ubuntu/chickenchauk/admin
+
+            echo "Sync repo to origin/main (discard any stray local commits)"
+            git fetch origin
+            git reset --hard origin/main
+
+            echo "Install dependencies and production build"
+            npm ci
+            npm run build
+
+            echo "Prune dangling images"
+            docker image prune -f
+
+            echo "Deployment done."
+
+            echo "Deploy build to NGINX"
+
+            sudo rm -rf /var/www/chickenchauk-admin/*
+            sudo mkdir -p /var/www/chickenchauk-admin
+
+            sudo cp -r dist/* /var/www/chickenchauk-admin/

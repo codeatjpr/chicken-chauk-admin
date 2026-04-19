@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,6 +33,9 @@ export function UsersPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const limit = 20
+
+  const [suspendTarget, setSuspendTarget] = useState<AdminUserRow | null>(null)
+  const [reinstateTarget, setReinstateTarget] = useState<AdminUserRow | null>(null)
 
   const listQ = useQuery({
     queryKey: ['admin-users', page, role, search],
@@ -157,7 +170,7 @@ export function UsersPage() {
                                   variant="outline"
                                   size="sm"
                                   disabled={suspendMut.isPending}
-                                  onClick={() => suspendMut.mutate(row.id)}
+                                  onClick={() => setSuspendTarget(row)}
                                 >
                                   Suspend
                                 </Button>
@@ -167,7 +180,7 @@ export function UsersPage() {
                                   variant="outline"
                                   size="sm"
                                   disabled={reinstateMut.isPending}
-                                  onClick={() => reinstateMut.mutate(row.id)}
+                                  onClick={() => setReinstateTarget(row)}
                                 >
                                   Reinstate
                                 </Button>
@@ -211,6 +224,59 @@ export function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!suspendTarget} onOpenChange={(o) => !o && setSuspendTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Suspend user?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{suspendTarget?.name ?? suspendTarget?.phone}</strong> ({suspendTarget?.phone}) will lose access
+              until reinstated.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={suspendMut.isPending}
+              onClick={() => {
+                if (!suspendTarget) return
+                const id = suspendTarget.id
+                setSuspendTarget(null)
+                suspendMut.mutate(id)
+              }}
+            >
+              Suspend
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!reinstateTarget} onOpenChange={(o) => !o && setReinstateTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reinstate user?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Restore access for <strong>{reinstateTarget?.name ?? reinstateTarget?.phone}</strong> (
+              {reinstateTarget?.phone})?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={reinstateMut.isPending}
+              onClick={() => {
+                if (!reinstateTarget) return
+                const id = reinstateTarget.id
+                setReinstateTarget(null)
+                reinstateMut.mutate(id)
+              }}
+            >
+              Reinstate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

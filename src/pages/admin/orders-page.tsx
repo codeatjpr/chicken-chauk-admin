@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -63,6 +73,7 @@ function AdminOrderStatusForm({
 }) {
   const [nextStatus, setNextStatus] = useState(allowedNext[0] ?? '')
   const [statusNote, setStatusNote] = useState('')
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false)
 
   const statusMut = useMutation({
     mutationFn: () =>
@@ -98,9 +109,33 @@ function AdminOrderStatusForm({
         value={statusNote}
         onChange={(e) => setStatusNote(e.target.value)}
       />
-      <Button type="button" disabled={!nextStatus || statusMut.isPending} onClick={() => statusMut.mutate()}>
+      <Button type="button" disabled={!nextStatus || statusMut.isPending} onClick={() => setStatusConfirmOpen(true)}>
         Update status
       </Button>
+
+      <AlertDialog open={statusConfirmOpen} onOpenChange={setStatusConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Update order status?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Move order <span className="font-mono text-xs">{orderId}</span> to <strong>{nextStatus}</strong>
+              {statusNote.trim() ? ` with note: ${statusNote.trim().slice(0, 160)}${statusNote.trim().length > 160 ? '…' : ''}` : '.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={statusMut.isPending || !nextStatus}
+              onClick={() => {
+                setStatusConfirmOpen(false)
+                statusMut.mutate()
+              }}
+            >
+              Confirm update
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

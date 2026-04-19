@@ -3,6 +3,16 @@ import { ImagePlus, Pencil, Plus, PowerOff } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ImageUploadField } from "@/components/forms/image-upload-field";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +67,10 @@ export function BannersPage() {
   const [isActive, setIsActive] = useState(true);
   const [createImage, setCreateImage] = useState<File | null>(null);
   const [editImage, setEditImage] = useState<File | null>(null);
+
+  const [createConfirmOpen, setCreateConfirmOpen] = useState(false);
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
+  const [deactivateTarget, setDeactivateTarget] = useState<BannerRow | null>(null);
 
   const listQ = useQuery({
     queryKey: ["admin-banners", page],
@@ -274,9 +288,7 @@ export function BannersPage() {
                               variant="ghost"
                               size="icon-sm"
                               className="text-destructive"
-                              onClick={() => {
-                                if (window.confirm("Deactivate this banner?")) deactivateMut.mutate(row.id);
-                              }}>
+                              onClick={() => setDeactivateTarget(row)}>
                               <PowerOff className="size-3.5" />
                             </Button>
                           </div>
@@ -415,11 +427,11 @@ export function BannersPage() {
                 <Button
                   type="button"
                   disabled={createMut.isPending || !canSubmitCreate}
-                  onClick={() => createMut.mutate()}>
+                  onClick={() => setCreateConfirmOpen(true)}>
                   Create
                 </Button>
               ) : (
-                <Button type="button" disabled={updateMut.isPending || !titleOk} onClick={() => updateMut.mutate()}>
+                <Button type="button" disabled={updateMut.isPending || !titleOk} onClick={() => setSaveConfirmOpen(true)}>
                   Save
                 </Button>
               )}
@@ -427,6 +439,79 @@ export function BannersPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={createConfirmOpen} onOpenChange={setCreateConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Create this banner?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Title <strong>{title.trim()}</strong> · link {linkType}
+              {linkType !== "STATIC" ? ` · sort ${sortOrder}` : ""}. This will upload the image and publish according to
+              your settings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={createMut.isPending}
+              onClick={() => {
+                setCreateConfirmOpen(false);
+                createMut.mutate();
+              }}>
+              Confirm create
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={saveConfirmOpen} onOpenChange={setSaveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save banner changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Updates <strong>{title.trim()}</strong>
+              {editImage ? " and replaces the image." : "."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={updateMut.isPending}
+              onClick={() => {
+                setSaveConfirmOpen(false);
+                updateMut.mutate();
+              }}>
+              Confirm save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deactivateTarget} onOpenChange={(o) => !o && setDeactivateTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate banner?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{deactivateTarget?.title}</strong> will no longer appear in the carousel. You can create a new
+              banner later if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deactivateMut.isPending}
+              onClick={() => {
+                if (!deactivateTarget) return;
+                const id = deactivateTarget.id;
+                setDeactivateTarget(null);
+                deactivateMut.mutate(id);
+              }}>
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

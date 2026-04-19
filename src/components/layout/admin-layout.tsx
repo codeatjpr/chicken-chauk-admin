@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   FolderTree,
   Package,
-  Layers,
   Search,
   ShoppingBag,
   Store,
@@ -15,7 +14,12 @@ import {
   ListOrdered,
   Bike,
   UserPlus,
+  IdCard,
+  Moon,
+  Sun,
+  Monitor,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -35,6 +39,13 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const user = useAdminAuthStore((s) => s.user);
   const clearSession = useAdminAuthStore((s) => s.clearSession);
+  const { theme, setTheme } = useTheme();
+
+  function cycleTheme() {
+    if (theme === 'light') setTheme('dark');
+    else if (theme === 'dark') setTheme('system');
+    else setTheme('light');
+  }
 
   async function handleLogout() {
     try {
@@ -68,10 +79,6 @@ export function AdminLayout() {
             <Package className="size-4 shrink-0" aria-hidden />
             Products
           </NavLink>
-          <NavLink to="/admin/product-variants" className={navClass}>
-            <Layers className="size-4 shrink-0" aria-hidden />
-            Product variants
-          </NavLink>
           <NavLink to="/admin/vendors" className={navClass}>
             <Store className="size-4 shrink-0" aria-hidden />
             Vendors
@@ -91,6 +98,10 @@ export function AdminLayout() {
           <NavLink to="/admin/delivery" className={navClass}>
             <Bike className="size-4 shrink-0" aria-hidden />
             Delivery
+          </NavLink>
+          <NavLink to="/admin/delivery/onboard" className={navClass}>
+            <IdCard className="size-4 shrink-0" aria-hidden />
+            Onboard rider
           </NavLink>
           <NavLink to="/admin/orders" className={navClass}>
             <ShoppingBag className="size-4 shrink-0" aria-hidden />
@@ -122,15 +133,34 @@ export function AdminLayout() {
           <p className="text-muted-foreground truncate text-xs" title={user?.email ?? ""}>
             {user?.email ?? user?.phone ?? "—"}
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-full justify-start gap-2"
-            onClick={() => void handleLogout()}>
-            <LogOut className="size-3.5" aria-hidden />
-            Sign out
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="flex-1 justify-start gap-2"
+              onClick={() => void handleLogout()}>
+              <LogOut className="size-3.5" aria-hidden />
+              Sign out
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5"
+              title={`Theme: ${theme ?? 'system'}. Click to cycle.`}
+              onClick={cycleTheme}
+            >
+              {theme === 'dark' ? (
+                <Moon className="size-3.5" />
+              ) : theme === 'light' ? (
+                <Sun className="size-3.5" />
+              ) : (
+                <Monitor className="size-3.5" />
+              )}
+              <span className="text-xs capitalize">{theme ?? 'system'}</span>
+            </Button>
+          </div>
         </div>
       </aside>
       <main className="min-w-0 flex-1 p-6 md:p-8">

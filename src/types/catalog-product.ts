@@ -4,23 +4,9 @@ export type MasterProduct = {
   name: string
   description: string | null
   imageUrl: string | null
-  unit: string
   isActive: boolean
   createdAt: string
   category: { id: string; name: string }
-}
-
-export type ProductVariantRow = {
-  id: string
-  name: string
-  weight: number
-  unit: string
-  isActive: boolean
-  sortOrder: number
-}
-
-export type MasterProductWithVariants = MasterProduct & {
-  variants: ProductVariantRow[]
 }
 
 export type ProductVendorUsageRow = {

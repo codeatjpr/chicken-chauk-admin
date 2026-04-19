@@ -3,6 +3,16 @@ import { UserPlus } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +52,10 @@ export function VendorsPage() {
   const [reasonMode, setReasonMode] = useState<ReasonMode>(null);
   const [reasonVendor, setReasonVendor] = useState<VendorAdminRow | null>(null);
   const [reasonText, setReasonText] = useState("");
+  const [reasonSubmitOpen, setReasonSubmitOpen] = useState(false);
+
+  const [approveTarget, setApproveTarget] = useState<VendorAdminRow | null>(null);
+  const [reinstateTarget, setReinstateTarget] = useState<VendorAdminRow | null>(null);
 
   const pendingQ = useQuery({
     queryKey: ["vendors-pending", page],
@@ -133,6 +147,16 @@ export function VendorsPage() {
     }
     if (reasonMode === "reject") rejectMut.mutate({ id: reasonVendor.id, reason: r });
     else suspendMut.mutate({ id: reasonVendor.id, reason: r });
+  }
+
+  function queueReasonSubmit() {
+    if (!reasonVendor || !reasonMode) return;
+    const r = reasonText.trim();
+    if (r.length < 10) {
+      toast.error("Reason must be at least 10 characters.");
+      return;
+    }
+    setReasonSubmitOpen(true);
   }
 
   const items = data?.items ?? [];
@@ -326,7 +350,7 @@ export function VendorsPage() {
                                   type="button"
                                   size="sm"
                                   disabled={approveMut.isPending}
-                                  onClick={() => approveMut.mutate(v.id)}>
+                                  onClick={() => setApproveTarget(v)}>
                                   Approve
                                 </Button>
                                 <Button
@@ -348,7 +372,7 @@ export function VendorsPage() {
                                 size="sm"
                                 variant="outline"
                                 disabled={reinstateMut.isPending}
-                                onClick={() => reinstateMut.mutate(v.id)}>
+                                onClick={() => setReinstateTarget(v)}>
                                 Reinstate
                               </Button>
                             )}
@@ -389,6 +413,82 @@ export function VendorsPage() {
         </CardContent>
       </Card>
 
+      <AlertDialog open={!!approveTarget} onOpenChange={(o) => !o && setApproveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve vendor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Approve <strong>{approveTarget?.name}</strong> in {approveTarget?.city}? They will be able to operate as
+              an active shop.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={approveMut.isPending}
+              onClick={() => {
+                if (!approveTarget) return;
+                const id = approveTarget.id;
+                setApproveTarget(null);
+                approveMut.mutate(id);
+              }}>
+              Approve
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!reinstateTarget} onOpenChange={(o) => !o && setReinstateTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reinstate vendor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Restore <strong>{reinstateTarget?.name}</strong> ({reinstateTarget?.city}) to active status?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={reinstateMut.isPending}
+              onClick={() => {
+                if (!reinstateTarget) return;
+                const id = reinstateTarget.id;
+                setReinstateTarget(null);
+                reinstateMut.mutate(id);
+              }}>
+              Reinstate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={reasonSubmitOpen} onOpenChange={setReasonSubmitOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{reasonMode === "reject" ? "Reject this vendor?" : "Suspend this vendor?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {reasonVendor ? (
+                <>
+                  <strong>{reasonVendor.name}</strong> — the vendor will see your reason after you confirm.
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            <AlertDialogAction
+              className={reasonMode === "suspend" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : undefined}
+              disabled={rejectMut.isPending || suspendMut.isPending}
+              onClick={() => {
+                setReasonSubmitOpen(false);
+                submitReason();
+              }}>
+              {reasonMode === "reject" ? "Confirm reject" : "Confirm suspend"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Sheet open={!!reasonMode} onOpenChange={(o) => !o && closeReason()}>
         <SheetContent>
           <SheetHeader>
@@ -412,8 +512,8 @@ export function VendorsPage() {
               type="button"
               disabled={rejectMut.isPending || suspendMut.isPending}
               variant={reasonMode === "suspend" ? "destructive" : "default"}
-              onClick={() => submitReason()}>
-              Confirm
+              onClick={() => queueReasonSubmit()}>
+              Continue
             </Button>
           </SheetFooter>
         </SheetContent>

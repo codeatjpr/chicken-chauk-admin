@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -57,6 +67,7 @@ export function PaymentsPage() {
   const [refundOrderId, setRefundOrderId] = useState('')
   const [refundAmount, setRefundAmount] = useState('')
   const [refundReason, setRefundReason] = useState('')
+  const [refundConfirmOpen, setRefundConfirmOpen] = useState(false)
 
   const range = rangeParams(from, to)
 
@@ -317,6 +328,40 @@ export function PaymentsPage() {
         </CardContent>
       </Card>
 
+      <AlertDialog open={refundConfirmOpen} onOpenChange={setRefundConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Initiate refund?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Order <span className="font-mono text-xs">{refundOrderId.trim()}</span>
+              {refundAmount.trim() ? (
+                <>
+                  {' '}
+                  · amount <strong>{refundAmount.trim()}</strong>
+                </>
+              ) : (
+                ' · full payment amount (if empty)'
+              )}
+              . Reason: {refundReason.trim().slice(0, 120)}
+              {refundReason.trim().length > 120 ? '…' : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={refundMut.isPending}
+              onClick={() => {
+                setRefundConfirmOpen(false)
+                refundMut.mutate()
+              }}
+            >
+              Confirm refund
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Sheet open={refundOpen} onOpenChange={setRefundOpen}>
         <SheetContent className="flex w-full flex-col overflow-y-auto sm:max-w-md">
           <SheetHeader>
@@ -355,7 +400,7 @@ export function PaymentsPage() {
               disabled={
                 refundMut.isPending || refundReason.trim().length < 3 || !refundOrderId.trim()
               }
-              onClick={() => refundMut.mutate()}
+              onClick={() => setRefundConfirmOpen(true)}
             >
               {refundMut.isPending ? 'Submitting…' : 'Submit refund'}
             </Button>
