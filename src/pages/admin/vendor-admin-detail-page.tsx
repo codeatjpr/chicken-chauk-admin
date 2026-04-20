@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { vendorFormPatchFromLocation } from "@/lib/vendor-location-prefill";
 import { cn } from "@/lib/utils";
 import {
   adminApproveVendorDocument,
@@ -406,23 +407,33 @@ function VendorAdminDetailLoaded({
             <Field label="Shop name" value={name} onChange={setName} className="sm:col-span-2" disabled={isViewOnly} />
             <Field label="Owner name" value={ownerName} onChange={setOwnerName} disabled={isViewOnly} />
             <Field label="Email" value={email} onChange={setEmail} type="email" disabled={isViewOnly} />
-            <Field label="Address" value={addressLine} onChange={setAddressLine} className="sm:col-span-2" disabled={isViewOnly} />
-            <Field label="City" value={city} onChange={setCity} disabled={isViewOnly} />
-            <Field label="PIN" value={pincode} onChange={setPincode} disabled={isViewOnly} />
             <div className="sm:col-span-2">
               <LocationPinMap
                 latitude={latitude}
                 longitude={longitude}
-                height={280}
                 readOnly={isViewOnly}
+                initialSelectedSummary={
+                  [addressLine, city, pincode].filter((s) => s.trim().length > 0).join(", ") || ""
+                }
                 onPick={(la, lo) => {
                   setLatitude(la.toFixed(6));
                   setLongitude(lo.toFixed(6));
                 }}
+                onResolvedPlace={
+                  isViewOnly
+                    ? undefined
+                    : (sel) => {
+                        const p = vendorFormPatchFromLocation(sel);
+                        if (p.addressLine) setAddressLine(p.addressLine);
+                        if (p.city) setCity(p.city);
+                        if (p.pincode) setPincode(p.pincode);
+                      }
+                }
               />
             </div>
-            <Field label="Latitude" value={latitude} onChange={setLatitude} disabled={isViewOnly} />
-            <Field label="Longitude" value={longitude} onChange={setLongitude} disabled={isViewOnly} />
+            <Field label="Address" value={addressLine} onChange={setAddressLine} className="sm:col-span-2" disabled={isViewOnly} />
+            <Field label="City" value={city} onChange={setCity} disabled={isViewOnly} />
+            <Field label="PIN" value={pincode} onChange={setPincode} disabled={isViewOnly} />
             <Field label="Prep (min)" value={prepTime} onChange={setPrepTime} disabled={isViewOnly} />
             <Field label="Min order (₹)" value={minOrderAmount} onChange={setMinOrderAmount} disabled={isViewOnly} />
             <Field label="Delivery radius (km)" value={deliveryRadiusKm} onChange={setDeliveryRadiusKm} disabled={isViewOnly} />

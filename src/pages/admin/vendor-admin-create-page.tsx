@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getApiErrorMessage } from '@/lib/api-error'
+import { vendorFormPatchFromLocation } from '@/lib/vendor-location-prefill'
 import { cn } from '@/lib/utils'
 import {
   adminCreateVendorOnboarding,
@@ -296,7 +297,7 @@ export function VendorAdminCreatePage() {
     if (city.trim().length < 2) return 'Enter city (at least 2 characters).'
     if (!/^\d{6}$/.test(pincode.trim())) return 'PIN code must be exactly 6 digits.'
     if (latitude.trim() === '' || longitude.trim() === '' || Number.isNaN(Number(latitude)) || Number.isNaN(Number(longitude))) {
-      return 'Set shop location: use map search, “Use my location”, or click the map. Coordinates fill in automatically when the map loads.'
+      return 'Set shop location: search the address or use “Use my location” (coordinates apply automatically).'
     }
     return null
   }, [step1Ok, name, ownerName, phone, password, addressLine, city, pincode, latitude, longitude])
@@ -356,22 +357,26 @@ export function VendorAdminCreatePage() {
               className="sm:col-span-2"
               hint="Min. 8 characters — vendor uses this with phone to sign in."
             />
-            <Field label="Address line" value={addressLine} onChange={setAddressLine} className="sm:col-span-2" />
-            <Field label="City" value={city} onChange={setCity} />
-            <Field label="PIN code" value={pincode} onChange={setPincode} />
             <div className="space-y-2 sm:col-span-2">
               <LocationPinMap
                 latitude={latitude}
                 longitude={longitude}
-                height={300}
+                initialSelectedSummary=""
                 onPick={(la, lo) => {
                   setLatitude(la.toFixed(6))
                   setLongitude(lo.toFixed(6))
                 }}
+                onResolvedPlace={(sel) => {
+                  const p = vendorFormPatchFromLocation(sel)
+                  if (p.addressLine) setAddressLine(p.addressLine)
+                  if (p.city) setCity(p.city)
+                  if (p.pincode) setPincode(p.pincode)
+                }}
               />
             </div>
-            <Field label="Latitude" value={latitude} onChange={setLatitude} placeholder="12.9716" />
-            <Field label="Longitude" value={longitude} onChange={setLongitude} placeholder="77.5946" />
+            <Field label="Address line" value={addressLine} onChange={setAddressLine} className="sm:col-span-2" />
+            <Field label="City" value={city} onChange={setCity} />
+            <Field label="PIN code" value={pincode} onChange={setPincode} />
             <Field label="Prep time (minutes)" value={prepTime} onChange={setPrepTime} />
             <Field label="Min order (₹)" value={minOrderAmount} onChange={setMinOrderAmount} />
             <Field label="Delivery radius (km)" value={deliveryRadiusKm} onChange={setDeliveryRadiusKm} />
