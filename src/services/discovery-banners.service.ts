@@ -10,10 +10,26 @@ function assertData<T>(res: ApiSuccess<T>, label: string): T {
   return res.data
 }
 
+export type BannerLinkType = 'VENDOR' | 'PRODUCT' | 'COUPON' | 'EXTERNAL' | 'STATIC'
+
+export type BannerPlacement = 'HERO_CAROUSEL' | 'MIDDLE_PROMO' | 'PRODUCT_HIGHLIGHT' | 'BOTTOM_STRIP'
+
+export type BannerLayoutPreset = 'RATIO_16_9' | 'RATIO_2_1' | 'RATIO_6_1' | 'RATIO_3_4'
+
+export type BannerPageScope = 'HOME' | 'CATEGORY'
+
 export type BannerRow = {
   id: string
   title: string
   imageUrl: string
+  imageUrlMobile: string | null
+  imageUrlDesktop: string | null
+  placement: BannerPlacement
+  layoutPreset: BannerLayoutPreset
+  pageScope: BannerPageScope
+  categoryId: string | null
+  isClickable: boolean
+  category: { id: string; name: string } | null
   linkType: string
   linkId: string | null
   externalUrl: string | null
@@ -25,8 +41,6 @@ export type BannerRow = {
   createdAt: string
 }
 
-export type BannerLinkType = 'VENDOR' | 'PRODUCT' | 'COUPON' | 'EXTERNAL' | 'STATIC'
-
 export async function listBanners(page = 1, limit = 20): Promise<PaginatedResult<BannerRow>> {
   const { data } = await axiosInstance.get<ApiSuccess<PaginatedResult<BannerRow>>>('/discovery/banners', {
     params: { page, limit },
@@ -34,23 +48,33 @@ export async function listBanners(page = 1, limit = 20): Promise<PaginatedResult
   return assertData(data, 'Failed to load banners')
 }
 
-/** Multipart: field `image` + text fields (no imageUrl). */
+export type CreateBannerFields = {
+  title: string
+  linkType: BannerLinkType
+  linkId?: string
+  externalUrl?: string
+  city?: string
+  sortOrder?: number
+  startsAt?: string
+  endsAt?: string
+  isActive?: boolean
+  placement?: BannerPlacement
+  layoutPreset?: BannerLayoutPreset
+  pageScope?: BannerPageScope
+  categoryId?: string
+  isClickable?: boolean
+}
+
+/** Multipart: field `image` (required) + optional `imageMobile`, `imageDesktop`. */
 export async function createBannerMultipart(
-  fields: {
-    title: string
-    linkType: BannerLinkType
-    linkId?: string
-    externalUrl?: string
-    city?: string
-    sortOrder?: number
-    startsAt?: string
-    endsAt?: string
-    isActive?: boolean
-  },
+  fields: CreateBannerFields,
   imageFile: File,
+  opts?: { imageMobile?: File; imageDesktop?: File },
 ): Promise<BannerRow> {
   const fd = new FormData()
   fd.append('image', imageFile)
+  if (opts?.imageMobile) fd.append('imageMobile', opts.imageMobile)
+  if (opts?.imageDesktop) fd.append('imageDesktop', opts.imageDesktop)
   fd.append('title', fields.title)
   fd.append('linkType', fields.linkType)
   if (fields.linkId) fd.append('linkId', fields.linkId)
@@ -60,6 +84,11 @@ export async function createBannerMultipart(
   if (fields.startsAt) fd.append('startsAt', fields.startsAt)
   if (fields.endsAt) fd.append('endsAt', fields.endsAt)
   if (fields.isActive !== undefined) fd.append('isActive', fields.isActive ? 'true' : 'false')
+  fd.append('placement', fields.placement ?? 'HERO_CAROUSEL')
+  fd.append('layoutPreset', fields.layoutPreset ?? 'RATIO_16_9')
+  fd.append('pageScope', fields.pageScope ?? 'HOME')
+  if (fields.categoryId) fd.append('categoryId', fields.categoryId)
+  fd.append('isClickable', fields.isClickable !== false ? 'true' : 'false')
   return adminPostFormData<BannerRow>('/discovery/banners', fd)
 }
 
@@ -75,6 +104,11 @@ export async function updateBanner(
     startsAt: string | null
     endsAt: string | null
     isActive: boolean
+    placement: BannerPlacement
+    layoutPreset: BannerLayoutPreset
+    pageScope: BannerPageScope
+    categoryId: string | null
+    isClickable: boolean
   }>,
 ): Promise<BannerRow> {
   const { data } = await axiosInstance.put<ApiSuccess<BannerRow>>(`/discovery/banners/${id}`, body)
@@ -86,8 +120,14 @@ export async function deactivateBanner(id: string): Promise<void> {
   if (!data.success) throw new Error(data.message ?? 'Deactivate failed')
 }
 
-export async function replaceBannerImage(id: string, file: File): Promise<BannerRow> {
+/** `slot` main = default image, mobile / desktop = responsive art. */
+export async function replaceBannerImage(
+  id: string,
+  file: File,
+  slot: 'main' | 'mobile' | 'desktop' = 'main',
+): Promise<BannerRow> {
   const fd = new FormData()
   fd.append('image', file)
-  return adminPostFormData<BannerRow>(`/discovery/banners/${id}/image`, fd)
+  const q = slot === 'main' ? '' : `?slot=${slot}`
+  return adminPostFormData<BannerRow>(`/discovery/banners/${id}/image${q}`, fd)
 }

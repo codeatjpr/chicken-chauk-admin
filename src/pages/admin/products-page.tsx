@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getApiErrorMessage } from '@/lib/api-error'
-import { listCategoriesAll } from '@/services/catalog-admin.service'
+import { listCategoriesAll, listSubcategoriesAll } from '@/services/catalog-admin.service'
 import {
   activateMasterProduct,
   createMasterProduct,
@@ -45,6 +45,7 @@ import type { MasterProduct } from '@/types/catalog-product'
 
 const productFormSchema = z.object({
   categoryId: z.string().uuid('Pick a category'),
+  subCategoryId: z.union([z.string().uuid(), z.literal('')]).optional(),
   name: z.string().min(2).max(150),
   description: z.string().max(20000).optional(),
 })
@@ -95,9 +96,17 @@ export function ProductsPage() {
     resolver: zodResolver(productFormSchema) as Resolver<ProductFormValues>,
     defaultValues: {
       categoryId: '',
+      subCategoryId: '',
       name: '',
       description: '',
     },
+  })
+
+  const watchedCategoryId = form.watch('categoryId')
+  const subCategoriesQ = useQuery({
+    queryKey: ['catalog-subcategories', watchedCategoryId],
+    queryFn: () => listSubcategoriesAll(watchedCategoryId),
+    enabled: Boolean(watchedCategoryId) && sheetOpen,
   })
 
   useEffect(() => {
@@ -105,6 +114,7 @@ export function ProductsPage() {
     if (editing) {
       form.reset({
         categoryId: editing.categoryId,
+        subCategoryId: editing.subCategoryId ?? '',
         name: editing.name,
         description: editing.description ?? '',
       })
@@ -112,6 +122,7 @@ export function ProductsPage() {
       const firstActive = (categories ?? []).find((c) => c.isActive)?.id ?? (categories ?? [])[0]?.id ?? ''
       form.reset({
         categoryId: firstActive,
+        subCategoryId: '',
         name: '',
         description: '',
       })
@@ -127,6 +138,7 @@ export function ProductsPage() {
     mutationFn: ({ id, body }: { id: string; body: ProductFormValues }) =>
       updateMasterProduct(id, {
         categoryId: body.categoryId,
+        subCategoryId: body.subCategoryId?.trim() ? body.subCategoryId.trim() : null,
         name: body.name.trim(),
         description: body.description?.trim() || null,
       }),
@@ -159,6 +171,7 @@ export function ProductsPage() {
       } else {
         const p = await createMut.mutateAsync({
           categoryId: values.categoryId,
+          ...(values.subCategoryId?.trim() && { subCategoryId: values.subCategoryId.trim() }),
           name: values.name.trim(),
           description: values.description?.trim() || undefined,
         })
@@ -281,6 +294,7 @@ export function ProductsPage() {
                       <th className="pb-2 font-medium">Image</th>
                       <th className="pb-2 font-medium">Name</th>
                       <th className="pb-2 font-medium">Category</th>
+                      <th className="pb-2 font-medium">Sub</th>
                       <th className="pb-2 font-medium">Status</th>
                       <th className="pb-2 font-medium text-right">Actions</th>
                     </tr>
@@ -301,6 +315,9 @@ export function ProductsPage() {
                         </td>
                         <td className="py-2 pr-4 font-medium">{p.name}</td>
                         <td className="text-muted-foreground py-2 pr-4">{p.category.name}</td>
+                        <td className="text-muted-foreground py-2 pr-4">
+                          {p.subCategory?.name ?? '—'}
+                        </td>
                         <td className="py-2 pr-4">
                           <Badge variant={p.isActive ? 'default' : 'secondary'}>
                             {p.isActive ? 'Active' : 'Inactive'}
@@ -408,7 +425,11 @@ export function ProductsPage() {
               <select
                 id="p-cat"
                 className="border-input bg-background h-8 w-full rounded-lg border px-2 text-sm"
-                {...form.register('categoryId')}
+                {...form.register('categoryId', {
+                  onChange: () => {
+                    form.setValue('subCategoryId', '', { shouldValidate: true })
+                  },
+                })}
               >
                 <option value="" disabled>
                   Select…
@@ -423,6 +444,36 @@ export function ProductsPage() {
               {form.formState.errors.categoryId && (
                 <p className="text-destructive text-xs">{form.formState.errors.categoryId.message}</p>
               )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="p-sub">Sub-category (optional)</Label>
+              <select
+                id="p-sub"
+                className="border-input bg-background h-8 w-full rounded-lg border px-2 text-sm"
+                disabled={!watchedCategoryId || subCategoriesQ.isLoading}
+                {...form.register('subCategoryId')}
+              >
+                <option value="">None</option>
+                {(subCategoriesQ.data ?? [])
+                  .filter(
+                    (s) =>
+                      s.isActive ||
+                      (editing?.subCategoryId != null && s.id === editing.subCategoryId),
+                  )
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                      {!s.isActive ? ' (inactive)' : ''}
+                    </option>
+                  ))}
+              </select>
+              {watchedCategoryId &&
+              !subCategoriesQ.isLoading &&
+              (subCategoriesQ.data?.filter((s) => s.isActive).length ?? 0) === 0 ? (
+                <p className="text-muted-foreground text-xs">
+                  No active sub-categories for this category. Add them under Sub-categories in the sidebar.
+                </p>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="p-name">Name</Label>

@@ -27,11 +27,19 @@ import {
   listBanners,
   replaceBannerImage,
   updateBanner,
+  type BannerLayoutPreset,
   type BannerLinkType,
   type BannerRow,
 } from "@/services/discovery-banners.service";
 
 const LINK_TYPES: BannerLinkType[] = ["STATIC", "VENDOR", "PRODUCT", "COUPON", "EXTERNAL"];
+
+/** Stored on the row for backwards compatibility; storefront uses 3:1 for the hero on all breakpoints. */
+const HOME_HERO_DEFAULTS = {
+  placement: "HERO_CAROUSEL" as const,
+  layoutPreset: "RATIO_16_9" as BannerLayoutPreset,
+  pageScope: "HOME" as const,
+};
 
 function toIsoFromLocal(dtLocal: string) {
   if (!dtLocal) return undefined;
@@ -66,7 +74,12 @@ export function BannersPage() {
   const [endsAtLocal, setEndsAtLocal] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [createImage, setCreateImage] = useState<File | null>(null);
+  const [createImageMobile, setCreateImageMobile] = useState<File | null>(null);
+  const [createImageDesktop, setCreateImageDesktop] = useState<File | null>(null);
   const [editImage, setEditImage] = useState<File | null>(null);
+  const [editImageMobile, setEditImageMobile] = useState<File | null>(null);
+  const [editImageDesktop, setEditImageDesktop] = useState<File | null>(null);
+  const [isClickable, setIsClickable] = useState(true);
 
   const [createConfirmOpen, setCreateConfirmOpen] = useState(false);
   const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
@@ -90,7 +103,10 @@ export function BannersPage() {
     setEndsAtLocal("");
     setIsActive(true);
     setCreateImage(null);
+    setCreateImageMobile(null);
+    setCreateImageDesktop(null);
     setEditImage(null);
+    setIsClickable(true);
   }
 
   function openEdit(row: BannerRow) {
@@ -104,8 +120,13 @@ export function BannersPage() {
     setStartsAtLocal(localFromIso(row.startsAt));
     setEndsAtLocal(localFromIso(row.endsAt));
     setIsActive(row.isActive);
+    setIsClickable(row.isClickable);
     setCreateImage(null);
+    setCreateImageMobile(null);
+    setCreateImageDesktop(null);
     setEditImage(null);
+    setEditImageMobile(null);
+    setEditImageDesktop(null);
     setSheetMode("edit");
   }
 
@@ -113,16 +134,22 @@ export function BannersPage() {
     setSheetMode(null);
     setEditRow(null);
     setCreateImage(null);
+    setCreateImageMobile(null);
+    setCreateImageDesktop(null);
     setEditImage(null);
+    setEditImageMobile(null);
+    setEditImageDesktop(null);
   }
 
   const createMut = useMutation({
     mutationFn: () => {
       if (!createImage) throw new Error("Choose an image");
+      const cms = { ...HOME_HERO_DEFAULTS, isClickable };
       if (linkType === "STATIC") {
         return createBannerMultipart(
-          { title: title.trim(), linkType: "STATIC", sortOrder: 0, isActive: true },
+          { title: title.trim(), linkType: "STATIC", sortOrder: 0, isActive: true, ...cms },
           createImage,
+          { imageMobile: createImageMobile ?? undefined, imageDesktop: createImageDesktop ?? undefined },
         );
       }
       return createBannerMultipart(
@@ -136,13 +163,15 @@ export function BannersPage() {
           startsAt: toIsoFromLocal(startsAtLocal),
           endsAt: toIsoFromLocal(endsAtLocal),
           isActive,
+          ...cms,
         },
         createImage,
+        { imageMobile: createImageMobile ?? undefined, imageDesktop: createImageDesktop ?? undefined },
       );
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-banners"] });
-      toast.success("Banner created");
+      toast.success("Hero slide created");
       closeSheet();
     },
     onError: (e) => toast.error(getApiErrorMessage(e, "Create failed")),
@@ -150,14 +179,18 @@ export function BannersPage() {
 
   const updateMut = useMutation({
     mutationFn: async () => {
+      const cms = { ...HOME_HERO_DEFAULTS, isClickable, categoryId: null as string | null };
       if (linkType === "STATIC") {
         const updated = await updateBanner(editRow!.id, {
           title: title.trim(),
           linkType: "STATIC",
           linkId: null,
           externalUrl: null,
+          ...cms,
         });
-        if (editImage) await replaceBannerImage(editRow!.id, editImage);
+        if (editImage) await replaceBannerImage(editRow!.id, editImage, "main");
+        if (editImageMobile) await replaceBannerImage(editRow!.id, editImageMobile, "mobile");
+        if (editImageDesktop) await replaceBannerImage(editRow!.id, editImageDesktop, "desktop");
         return updated;
       }
       const updated = await updateBanner(editRow!.id, {
@@ -170,13 +203,16 @@ export function BannersPage() {
         startsAt: startsAtLocal ? (toIsoFromLocal(startsAtLocal) ?? null) : null,
         endsAt: endsAtLocal ? (toIsoFromLocal(endsAtLocal) ?? null) : null,
         isActive,
+        ...cms,
       });
-      if (editImage) await replaceBannerImage(editRow!.id, editImage);
+      if (editImage) await replaceBannerImage(editRow!.id, editImage, "main");
+      if (editImageMobile) await replaceBannerImage(editRow!.id, editImageMobile, "mobile");
+      if (editImageDesktop) await replaceBannerImage(editRow!.id, editImageDesktop, "desktop");
       return updated;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-banners"] });
-      toast.success("Banner updated");
+      toast.success("Hero slide updated");
       closeSheet();
     },
     onError: (e) => toast.error(getApiErrorMessage(e, "Update failed")),
@@ -186,15 +222,19 @@ export function BannersPage() {
     mutationFn: deactivateBanner,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-banners"] });
-      toast.success("Banner deactivated");
+      toast.success("Hero slide deactivated");
     },
     onError: (e) => toast.error(getApiErrorMessage(e, "Deactivate failed")),
   });
 
-  async function onReplaceImage(row: BannerRow, file: File | null) {
+  async function onReplaceImage(
+    row: BannerRow,
+    file: File | null,
+    slot: "main" | "mobile" | "desktop" = "main",
+  ) {
     if (!file) return;
     try {
-      await replaceBannerImage(row.id, file);
+      await replaceBannerImage(row.id, file, slot);
       void queryClient.invalidateQueries({ queryKey: ["admin-banners"] });
       toast.success("Image replaced");
     } catch (e) {
@@ -215,27 +255,35 @@ export function BannersPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">Discovery banners</h1>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">Home hero carousel</h1>
           <p className="text-muted-foreground text-sm">
-            Home carousel. Static = title + image only (no link). Other types use a link target and optional schedule.
+            Shown only on the customer home page. The on-screen frame is{" "}
+            <strong className="text-foreground font-medium">3:1</strong> on phones and desktop. Upload optional{" "}
+            <strong className="text-foreground font-medium">mobile</strong> and{" "}
+            <strong className="text-foreground font-medium">desktop</strong> images at that ratio for different crops;
+            the main image is a fallback if either is missing.
           </p>
         </div>
         <Button type="button" onClick={openCreate} className="gap-2">
           <Plus className="size-4" aria-hidden />
-          New banner
+          New slide
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Banners</CardTitle>
-          <CardDescription>{pr ? `${pr.total} total` : ""}</CardDescription>
+          <CardTitle>Slides</CardTitle>
+          <CardDescription>
+            {pr ? `${pr.total} total. ` : ""}
+            Only home hero slides appear on the customer site; older placement types may remain in this list until you
+            deactivate them.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {listQ.isLoading ? (
             <Skeleton className="h-48 w-full" />
           ) : items.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No banners yet.</p>
+            <p className="text-muted-foreground text-sm">No hero slides yet.</p>
           ) : (
             <>
               <div className="overflow-x-auto">
@@ -329,42 +377,84 @@ export function BannersPage() {
       </Card>
 
       <Sheet open={sheetMode !== null} onOpenChange={(o) => !o && closeSheet()}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>{sheetMode === "create" ? "New banner" : "Edit banner"}</SheetTitle>
+            <SheetTitle>{sheetMode === "create" ? "New hero slide" : "Edit hero slide"}</SheetTitle>
             <SheetDescription>
               {sheetMode === "create"
                 ? linkType === "STATIC"
-                  ? "Static banner: image + title only (no link, city, or schedule)."
+                  ? "Static slide: image + title only (no link, city, or schedule)."
                   : "Image is required. Link type drives which field is used."
                 : editRow?.id}
             </SheetDescription>
           </SheetHeader>
           <div className="space-y-3 px-4 pb-4">
             {sheetMode === "create" ? (
-              <ImageUploadField
-                label="Image"
-                file={createImage}
-                onFileChange={setCreateImage}
-                accept="image/jpeg,image/png,image/webp"
-                previewClassName="w-full object-cover"
-                hint="Banner image previews before create."
-              />
+              <div className="space-y-2">
+                <ImageUploadField
+                  label="Main image (required)"
+                  file={createImage}
+                  onFileChange={setCreateImage}
+                  accept="image/jpeg,image/png,image/webp"
+                  previewClassName="w-full object-cover"
+                  hint="Required — used as fallback if mobile/desktop are omitted."
+                />
+                <ImageUploadField
+                  label="Mobile image (optional)"
+                  file={createImageMobile}
+                  onFileChange={setCreateImageMobile}
+                  accept="image/jpeg,image/png,image/webp"
+                  previewClassName="w-full object-cover"
+                  hint="Target aspect 3:1 (e.g. 1200×400). Shown below the md breakpoint when set."
+                />
+                <ImageUploadField
+                  label="Desktop image (optional)"
+                  file={createImageDesktop}
+                  onFileChange={setCreateImageDesktop}
+                  accept="image/jpeg,image/png,image/webp"
+                  previewClassName="w-full object-cover"
+                  hint="Target aspect 3:1 (e.g. 2560×853). Shown from md and up when set (same ratio as mobile)."
+                />
+              </div>
             ) : (
-              <ImageUploadField
-                label="Replace image (optional)"
-                file={editImage}
-                onFileChange={setEditImage}
-                currentImageUrl={editRow?.imageUrl}
-                accept="image/jpeg,image/png,image/webp"
-                previewClassName="w-full object-cover"
-                hint="Pick a new image only if you want to replace the current banner."
-              />
+              <div className="space-y-2">
+                <ImageUploadField
+                  label="Replace main image (optional)"
+                  file={editImage}
+                  onFileChange={setEditImage}
+                  currentImageUrl={editRow?.imageUrl}
+                  accept="image/jpeg,image/png,image/webp"
+                  previewClassName="w-full object-cover"
+                  hint="Default/callback asset."
+                />
+                <ImageUploadField
+                  label="Replace mobile image (optional)"
+                  file={editImageMobile}
+                  onFileChange={setEditImageMobile}
+                  currentImageUrl={editRow?.imageUrlMobile ?? undefined}
+                  accept="image/jpeg,image/png,image/webp"
+                  previewClassName="w-full object-cover"
+                  hint="Target aspect 3:1."
+                />
+                <ImageUploadField
+                  label="Replace desktop image (optional)"
+                  file={editImageDesktop}
+                  onFileChange={setEditImageDesktop}
+                  currentImageUrl={editRow?.imageUrlDesktop ?? undefined}
+                  accept="image/jpeg,image/png,image/webp"
+                  previewClassName="w-full object-cover"
+                  hint="Target aspect 3:1."
+                />
+              </div>
             )}
             <div className="space-y-1">
               <Label>Title</Label>
               <Input value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={isClickable} onChange={(e) => setIsClickable(e.target.checked)} />
+              Clickable (if off, image is view-only; no link)
+            </label>
             <div className="space-y-1">
               <Label htmlFor="bn-link">Link type</Label>
               <select
@@ -443,11 +533,11 @@ export function BannersPage() {
       <AlertDialog open={createConfirmOpen} onOpenChange={setCreateConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Create this banner?</AlertDialogTitle>
+            <AlertDialogTitle>Create this hero slide?</AlertDialogTitle>
             <AlertDialogDescription>
               Title <strong>{title.trim()}</strong> · link {linkType}
-              {linkType !== "STATIC" ? ` · sort ${sortOrder}` : ""}. This will upload the image and publish according to
-              your settings.
+              {linkType !== "STATIC" ? ` · sort ${sortOrder}` : ""}. This uploads the image and publishes on the home
+              hero only.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -467,7 +557,7 @@ export function BannersPage() {
       <AlertDialog open={saveConfirmOpen} onOpenChange={setSaveConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Save banner changes?</AlertDialogTitle>
+            <AlertDialogTitle>Save hero slide changes?</AlertDialogTitle>
             <AlertDialogDescription>
               Updates <strong>{title.trim()}</strong>
               {editImage ? " and replaces the image." : "."}
@@ -490,10 +580,10 @@ export function BannersPage() {
       <AlertDialog open={!!deactivateTarget} onOpenChange={(o) => !o && setDeactivateTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Deactivate banner?</AlertDialogTitle>
+            <AlertDialogTitle>Deactivate hero slide?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deactivateTarget?.title}</strong> will no longer appear in the carousel. You can create a new
-              banner later if needed.
+              <strong>{deactivateTarget?.title}</strong> will no longer appear on the home carousel. You can add a new
+              slide later if needed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

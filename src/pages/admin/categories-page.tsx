@@ -17,8 +17,9 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { GripVertical, Pencil, Plus, Trash2 } from 'lucide-react'
+import { GripVertical, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useForm, type Resolver } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -34,7 +35,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -63,6 +64,7 @@ import { cn } from '@/lib/utils'
 
 const categoryFormSchema = z.object({
   name: z.string().min(2, 'Min 2 characters').max(100),
+  tagline: z.string().max(200).optional(),
   sortOrder: z.coerce.number().int().min(0),
 })
 
@@ -96,7 +98,7 @@ export function CategoriesPage() {
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categoryFormSchema) as Resolver<CategoryFormValues>,
-    defaultValues: { name: '', sortOrder: 0 },
+    defaultValues: { name: '', tagline: '', sortOrder: 0 },
   })
 
   useEffect(() => {
@@ -104,11 +106,12 @@ export function CategoriesPage() {
     if (editing) {
       form.reset({
         name: editing.name,
+        tagline: editing.tagline ?? '',
         sortOrder: editing.sortOrder,
       })
     } else {
       const nextOrder = items.length ? Math.max(...items.map((c) => c.sortOrder)) + 1 : 0
-      form.reset({ name: '', sortOrder: nextOrder })
+      form.reset({ name: '', tagline: '', sortOrder: nextOrder })
     }
     setImageFile(null)
   }, [sheetOpen, editing, items, form])
@@ -123,6 +126,7 @@ export function CategoriesPage() {
       updateCategory(id, {
         name: body.name.trim(),
         sortOrder: body.sortOrder,
+        tagline: body.tagline?.trim() ? body.tagline.trim() : null,
       }),
     onError: (e) => toast.error(getApiErrorMessage(e, 'Update failed')),
   })
@@ -174,6 +178,7 @@ export function CategoriesPage() {
         const created = await createMut.mutateAsync({
           name: values.name.trim(),
           sortOrder: values.sortOrder,
+          ...(values.tagline?.trim() && { tagline: values.tagline.trim() }),
         })
         if (imageFile) await uploadCategoryImage(created.id, imageFile)
       }
@@ -250,6 +255,7 @@ export function CategoriesPage() {
                         <th className="pb-2 font-medium">Sort</th>
                         <th className="pb-2 font-medium">Status</th>
                         <th className="pb-2 font-medium text-right">Actions</th>
+                        <th className="pb-2 w-10" aria-label="Sub-categories" />
                       </tr>
                     </thead>
                     <tbody>
@@ -260,6 +266,7 @@ export function CategoriesPage() {
                           onEdit={openEdit}
                           onToggle={(cat) => setToggleTarget(cat)}
                           onDelete={(cat) => setDeleteTarget(cat)}
+                          subcategoriesTo={`/admin/subcategories?categoryId=${c.id}`}
                         />
                       ))}
                     </tbody>
@@ -299,6 +306,19 @@ export function CategoriesPage() {
               <Input id="cat-name" {...form.register('name')} aria-invalid={!!form.formState.errors.name} />
               {form.formState.errors.name && (
                 <p className="text-destructive text-xs">{form.formState.errors.name.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cat-tagline">Tagline (optional)</Label>
+              <textarea
+                id="cat-tagline"
+                rows={2}
+                placeholder="Short line on the storefront category page…"
+                className="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[72px] w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                {...form.register('tagline')}
+              />
+              {form.formState.errors.tagline && (
+                <p className="text-destructive text-xs">{form.formState.errors.tagline.message}</p>
               )}
             </div>
             <ImageUploadField
@@ -420,11 +440,13 @@ function SortableRow({
   onEdit,
   onToggle,
   onDelete,
+  subcategoriesTo,
 }: {
   category: CatalogCategory
   onEdit: (c: CatalogCategory) => void
   onToggle: (c: CatalogCategory) => void | Promise<void>
   onDelete: (c: CatalogCategory) => void | Promise<void>
+  subcategoriesTo: string
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: c.id,
@@ -481,6 +503,16 @@ function SortableRow({
             <Trash2 className="size-3.5" />
           </Button>
         </div>
+      </td>
+      <td className="py-2 text-right">
+        <Link
+          to={subcategoriesTo}
+          title="Sub-categories"
+          aria-label="Open sub-categories for this category"
+          className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }))}
+        >
+          <Layers className="size-3.5" />
+        </Link>
       </td>
     </tr>
   )

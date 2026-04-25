@@ -22,6 +22,7 @@ export type RiderAdminRow = {
   rating: number
   totalDeliveries: number
   totalEarnings: number
+  maxConcurrentDeliveries: number
   createdAt: string
   user: { name: string | null; phone: string }
 }
@@ -105,6 +106,16 @@ export async function getRiderStatsAdmin(riderId: string): Promise<RiderStats> {
 export async function assignRiderToOrder(orderId: string, riderId: string): Promise<void> {
   const { data } = await axiosInstance.post<ApiSuccess<null>>('/delivery/assign', { orderId, riderId })
   if (!data.success) throw new Error(data.message ?? 'Assign failed')
+}
+
+export async function updateRiderMaxConcurrent(
+  riderId: string,
+  maxConcurrentDeliveries: number,
+): Promise<RiderAdminRow> {
+  const { data } = await axiosInstance.patch<ApiSuccess<RiderAdminRow>>(`/delivery/admin/riders/${riderId}`, {
+    maxConcurrentDeliveries,
+  })
+  return assertData(data, 'Failed to update rider')
 }
 
 export type AdminOnboardRiderBody = {

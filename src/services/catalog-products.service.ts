@@ -18,6 +18,7 @@ export async function listMasterProducts(params: {
   page?: number
   limit?: number
   categoryId?: string
+  subCategoryId?: string
   search?: string
   isActive?: boolean
 }): Promise<PaginatedResult<MasterProduct>> {
@@ -35,6 +36,7 @@ export async function listMasterProducts(params: {
 
 export async function createMasterProduct(body: {
   categoryId: string
+  subCategoryId?: string | null
   name: string
   description?: string
 }): Promise<MasterProduct> {
@@ -46,6 +48,7 @@ export async function updateMasterProduct(
   id: string,
   body: Partial<{
     categoryId: string
+    subCategoryId: string | null
     name: string
     description: string | null
   }>,

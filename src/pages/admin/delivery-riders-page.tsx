@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
@@ -25,6 +25,7 @@ import {
   getRiderDeliveriesAdmin,
   getRiderStatsAdmin,
   listRiders,
+  updateRiderMaxConcurrent,
   type RiderAdminRow,
 } from '@/services/delivery-admin.service'
 
@@ -46,6 +47,7 @@ export function DeliveryRidersPage() {
   const [assignOrderId, setAssignOrderId] = useState('')
   const [assignRiderId, setAssignRiderId] = useState('')
   const [assignConfirmOpen, setAssignConfirmOpen] = useState(false)
+  const [maxConcurrentInput, setMaxConcurrentInput] = useState('1')
 
   const ridersQ = useQuery({
     queryKey: ['admin-riders', page, onlineFilter, verifiedFilter],
@@ -68,6 +70,17 @@ export function DeliveryRidersPage() {
     queryKey: ['admin-rider-deliveries', selected?.id, delPage],
     queryFn: () => getRiderDeliveriesAdmin(selected!.id, delPage, delLimit),
     enabled: !!selected,
+  })
+
+  const updateCapMut = useMutation({
+    mutationFn: () =>
+      updateRiderMaxConcurrent(selected!.id, Number.parseInt(maxConcurrentInput, 10)),
+    onSuccess: (row) => {
+      toast.success('Max concurrent deliveries updated')
+      setSelected(row)
+      void queryClient.invalidateQueries({ queryKey: ['admin-riders'] })
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e, 'Update failed')),
   })
 
   const assignMut = useMutation({
@@ -99,6 +112,12 @@ export function DeliveryRidersPage() {
     setDelPage(1)
     setAssignRiderId(row.id)
   }
+
+  useEffect(() => {
+    if (selected) {
+      setMaxConcurrentInput(String(selected.maxConcurrentDeliveries ?? 1))
+    }
+  }, [selected])
 
   return (
     <div className="space-y-6">
@@ -330,6 +349,38 @@ export function DeliveryRidersPage() {
                     </div>
                   </div>
                 ) : null}
+
+                <div className="border-border/80 space-y-2 rounded-lg border p-3">
+                  <p className="text-sm font-medium">Concurrent orders (batching)</p>
+                  <p className="text-muted-foreground text-xs">
+                    How many non-finished deliveries this rider can have at once. Nearest-rider assignment respects this cap.
+                  </p>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="max-concurrent">Max active deliveries</Label>
+                      <Input
+                        id="max-concurrent"
+                        type="number"
+                        min={1}
+                        max={20}
+                        className="w-24"
+                        value={maxConcurrentInput}
+                        onChange={(e) => setMaxConcurrentInput(e.target.value)}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={
+                        updateCapMut.isPending ||
+                        Number.parseInt(maxConcurrentInput, 10) === selected.maxConcurrentDeliveries
+                      }
+                      onClick={() => updateCapMut.mutate()}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
 
                 <div>
                   <h3 className="mb-2 text-sm font-medium">Recent deliveries</h3>

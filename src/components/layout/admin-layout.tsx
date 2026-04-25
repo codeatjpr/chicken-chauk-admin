@@ -2,6 +2,7 @@ import {
   LogOut,
   LayoutDashboard,
   FolderTree,
+  Layers,
   Package,
   Search,
   ShoppingBag,
@@ -13,6 +14,7 @@ import {
   Images,
   ListOrdered,
   Bike,
+  Settings2,
   UserPlus,
   IdCard,
   Moon,
@@ -79,6 +81,10 @@ export function AdminLayout() {
             <Package className="size-4 shrink-0" aria-hidden />
             Products
           </NavLink>
+          <NavLink to="/admin/subcategories" className={navClass}>
+            <Layers className="size-4 shrink-0" aria-hidden />
+            Sub-categories
+          </NavLink>
           <NavLink to="/admin/vendors" className={navClass}>
             <Store className="size-4 shrink-0" aria-hidden />
             Vendors
@@ -93,7 +99,11 @@ export function AdminLayout() {
           </NavLink>
           <NavLink to="/admin/banners" className={navClass}>
             <Images className="size-4 shrink-0" aria-hidden />
-            Banners
+            Home hero
+          </NavLink>
+          <NavLink to="/admin/platform-settings" className={navClass}>
+            <Settings2 className="size-4 shrink-0" aria-hidden />
+            Platform fees
           </NavLink>
           <NavLink to="/admin/delivery" className={navClass}>
             <Bike className="size-4 shrink-0" aria-hidden />

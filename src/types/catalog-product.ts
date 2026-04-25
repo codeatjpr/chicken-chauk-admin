@@ -1,12 +1,14 @@
 export type MasterProduct = {
   id: string
   categoryId: string
+  subCategoryId: string | null
   name: string
   description: string | null
   imageUrl: string | null
   isActive: boolean
   createdAt: string
   category: { id: string; name: string }
+  subCategory: { id: string; name: string } | null
 }
 
 export type ProductVendorUsageRow = {
