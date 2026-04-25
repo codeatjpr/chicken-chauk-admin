@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ImagePlus, Pencil, Plus, Store } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useForm, type Resolver, Controller } from 'react-hook-form'
+import { useForm, useWatch, type Resolver, Controller } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { ImageUploadField } from '@/components/forms/image-upload-field'
@@ -102,7 +102,7 @@ export function ProductsPage() {
     },
   })
 
-  const watchedCategoryId = form.watch('categoryId')
+  const watchedCategoryId = useWatch({ control: form.control, name: 'categoryId' })
   const subCategoriesQ = useQuery({
     queryKey: ['catalog-subcategories', watchedCategoryId],
     queryFn: () => listSubcategoriesAll(watchedCategoryId),

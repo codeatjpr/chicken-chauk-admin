@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2Icon, Settings2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,26 +11,19 @@ import { getApiErrorMessage } from '@/lib/api-error'
 import {
   fetchPlatformSettings,
   updatePlatformSettings,
+  type PlatformFeeSettings,
 } from '@/services/platform-settings-admin.service'
 
 const QK = ['admin', 'platform-settings'] as const
 
-export function PlatformSettingsPage() {
-  const qc = useQueryClient()
-  const q = useQuery({ queryKey: QK, queryFn: fetchPlatformSettings })
-  const [base, setBase] = useState('')
-  const [freeAbove, setFreeAbove] = useState('')
-  const [platformPct, setPlatformPct] = useState('')
-  const [platformFixed, setPlatformFixed] = useState('')
+type FormProps = { settings: PlatformFeeSettings }
 
-  useEffect(() => {
-    if (q.data) {
-      setBase(String(q.data.deliveryFeeBase))
-      setFreeAbove(String(q.data.deliveryFeeFreeAbove))
-      setPlatformPct(String(q.data.platformFeePercent))
-      setPlatformFixed(String(q.data.platformFeeFixed ?? 0))
-    }
-  }, [q.data])
+function PlatformSettingsForm({ settings }: FormProps) {
+  const qc = useQueryClient()
+  const [base, setBase] = useState(String(settings.deliveryFeeBase))
+  const [freeAbove, setFreeAbove] = useState(String(settings.deliveryFeeFreeAbove))
+  const [platformPct, setPlatformPct] = useState(String(settings.platformFeePercent))
+  const [platformFixed, setPlatformFixed] = useState(String(settings.platformFeeFixed ?? 0))
 
   const mut = useMutation({
     mutationFn: () => {
@@ -55,19 +48,6 @@ export function PlatformSettingsPage() {
     },
     onError: (e) => toast.error(getApiErrorMessage(e, 'Could not save')),
   })
-
-  if (q.isLoading) {
-    return (
-      <div className="max-w-lg space-y-4">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-64 rounded-xl" />
-      </div>
-    )
-  }
-
-  if (q.isError || !q.data) {
-    return <p className="text-destructive text-sm">Could not load platform settings.</p>
-  }
 
   return (
     <div className="max-w-lg space-y-6">
@@ -149,4 +129,23 @@ export function PlatformSettingsPage() {
       </Card>
     </div>
   )
+}
+
+export function PlatformSettingsPage() {
+  const q = useQuery({ queryKey: QK, queryFn: fetchPlatformSettings })
+
+  if (q.isLoading) {
+    return (
+      <div className="max-w-lg space-y-4">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-64 rounded-xl" />
+      </div>
+    )
+  }
+
+  if (q.isError || !q.data) {
+    return <p className="text-destructive text-sm">Could not load platform settings.</p>
+  }
+
+  return <PlatformSettingsForm key={q.dataUpdatedAt} settings={q.data} />
 }

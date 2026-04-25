@@ -131,7 +131,6 @@ export function SubcategoriesPage() {
         ''
       form.reset({ categoryId: cat, name: '', sortOrder: nextOrder })
     }
-    setSheetImageFile(null)
   }, [sheetOpen, editing, form, categories, categoryFilter, subCategoriesQ.data])
 
   const createMut = useMutation({
@@ -400,6 +399,7 @@ export function SubcategoriesPage() {
         open={sheetOpen}
         onOpenChange={(o) => {
           setSheetOpen(o)
+          if (o) setSheetImageFile(null)
           if (!o) setEditing(null)
         }}
       >

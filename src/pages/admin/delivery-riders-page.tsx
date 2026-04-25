@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
@@ -78,6 +78,7 @@ export function DeliveryRidersPage() {
     onSuccess: (row) => {
       toast.success('Max concurrent deliveries updated')
       setSelected(row)
+      setMaxConcurrentInput(String(row.maxConcurrentDeliveries ?? 1))
       void queryClient.invalidateQueries({ queryKey: ['admin-riders'] })
     },
     onError: (e) => toast.error(getApiErrorMessage(e, 'Update failed')),
@@ -111,13 +112,8 @@ export function DeliveryRidersPage() {
     setSelected(row)
     setDelPage(1)
     setAssignRiderId(row.id)
+    setMaxConcurrentInput(String(row.maxConcurrentDeliveries ?? 1))
   }
-
-  useEffect(() => {
-    if (selected) {
-      setMaxConcurrentInput(String(selected.maxConcurrentDeliveries ?? 1))
-    }
-  }, [selected])
 
   return (
     <div className="space-y-6">
